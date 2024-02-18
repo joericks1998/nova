@@ -1,0 +1,6 @@
+#include <stdio.h>
+
+int main() {
+    const char *joe = "A pretty cool dude";
+    return 0;
+}
