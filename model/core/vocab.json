@@ -1,7 +1,0 @@
-{
-  "c":["if", "else", "def", "main", "arg", "*",
-    ";", "&", "<studio.h>", " ", "\n", "int", "struct",
-    "char", ""
-
-  ]
-}
