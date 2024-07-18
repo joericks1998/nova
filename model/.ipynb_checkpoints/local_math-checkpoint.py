@@ -1,6 +1,7 @@
 import numpy as np
 
 # Math functions required
+
 def ReLU(v):
     return np.array([np.maximum(e, 0) for e in v])
 
@@ -42,3 +43,8 @@ def clip(gradient, n):
 
 def vectorInit(dim):
     return np.random.random((self.v_dim, 1)) - 1
+
+def heInit(shape):
+    fan_in = shape[1]
+    scale = np.sqrt(2/fan_in)
+    return np.random.randn(*shape) * scale

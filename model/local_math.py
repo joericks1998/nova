@@ -1,6 +1,7 @@
 import numpy as np
 
 # Math functions required
+
 def ReLU(v):
     return np.array([np.maximum(e, 0) for e in v])
 

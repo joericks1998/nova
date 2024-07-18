@@ -1,12 +1,12 @@
 import numpy as np
-import math
+import local_math
+from .constants import embd_constants
 
 class Embedding:
     def __init__(self, v_dim):
         self.v_dim = v_dim
         self.hmap = {}
         self.M = None
-        self.a = None
         self.Z = None
         self.dz = None
         self.dM = None
@@ -15,13 +15,13 @@ class Embedding:
         if word in self.hmap.keys():
             pass
         else:
-            vec = math.heInit((1,self.v_dim))
-            print(vec)
+            vec = local_math.heInit((1,self.v_dim))
             if self.M is None:
                 self.hmap[word] = 0
                 self.M = vec
             else:
                 self.M = np.hstack((self.M, vec))
                 self.hmap[word] = self.M.shape[1]-1
-        self.a = np.array(([1 if i == self.hmap[word] else 0 for i in range(0, self.M.shape[1])],)).T
+        # will need this snippet in order to 
+        self.a = np.array(([1 if i == self.hmap[word] else 0 for i in range(0, self.M.shape[0])],)).T
         return 

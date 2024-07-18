@@ -1,13 +1,14 @@
 import numpy as np
-import constants
-import math
+import local_math
+from .constants import fnn_constants
+
 
 
 class Layer:
     def __init__(self, W=None, a=None, b=None):
         self.W = W
         self.a = a
-        if W:
+        if np.any(W):
             self.b = np.zeros((1, W.shape[0]))
         else:
             self.b = None
@@ -17,20 +18,18 @@ class Layer:
         self.db = None
 
 class Neural:
-    def __init__(self, output_dim, hidden_dim = 3, network_dim = 5):
+    def __init__(self, output_dim = None, embedding_instance = None, hidden_dim = None, network_dim = 5):
         self.token = None
-        self.embedding = Embedding(hidden_dim)
+        self.embedding = embedding_instance
         self.layers = []
         self.hidden_dim = hidden_dim
         self.network_dim = network_dim
         self.Y_hat = None
         self.Y = None
-        self.options = output
-        self.correct_answer = None
         for i in range(network_dim-1):
-            lyr = Layer(W=math.heInit((hidden_dim, hidden_dim)))
+            lyr = Layer(W=local_math.heInit((hidden_dim, hidden_dim)))
             self.layers.append(lyr)
-        lyr = Layer(W=math.heInit((output_dim, hidden_dim)))
+        lyr = Layer(W=local_math.heInit((output_dim, hidden_dim)))
         self.layers.append(lyr)
 
     # getting the answer from the network
