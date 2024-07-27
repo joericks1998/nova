@@ -4,7 +4,6 @@ class EmbeddingLayer(tf.Module):
     def __init__(self, embedding_dim, name=None):
         # Initialize the EmbeddingLayer with the given embedding dimension and optional name
         super().__init__(name=name)
-        self.name = name  # Store the name of the module
         self.initializer = tf.keras.initializers.HeNormal()  # Set the initializer for embeddings
         self.embedding_dim = embedding_dim  # Store the dimension of the embeddings
         self.embeddings = None  # Initialize embeddings to None
@@ -45,7 +44,7 @@ class EmbeddingLayer(tf.Module):
 
         other_h = other_layer.h  # Get the word-to-index mapping from the other layer
         # Update the indices in other_layer's dictionary to match the new combined layer
-        updated_o_h = {k: v + self.embeddings.shape[0] - 1 for k, v in zip(other_h.keys(), other_h.values())}
+        updated_o_h = {k: v + self.embeddings.shape[0] for k, v in zip(other_h.keys(), other_h.values())}
         # Merge the word-to-index dictionaries from both layers
         addition_layer.h = {**self.h, **updated_o_h}
 
