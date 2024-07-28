@@ -59,8 +59,7 @@ class PerformerAttention(tf.Module):
         # FAVOR+ Mechanism
         kv = tf.einsum('...nd,...ne->...de', k_prime, v)
         z = 1.0 / (tf.einsum('...nd,...d->...n', q_prime, tf.reduce_sum(k_prime, axis=-2)) + 1e-6)
-        attention_output = tf.einsum('...nd,...de,...n->...ne', q_prime, kv, z)
-
+        attention_output = tf.einsum('...nd,...de,...n->...ne', q_prime, kv, z) 
         # apply mask
         attention_output = masking.masked_attention(q_prime, k_prime, v, lookahead_mask)
 
