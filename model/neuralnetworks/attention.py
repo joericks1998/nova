@@ -2,11 +2,10 @@ import tensorflow as tf
 from . import masking
 
 class PerformerAttention(tf.Module):
-    def __init__(self, embed_dim, num_heads, nb_features, kernel_transformation=None, name=None):
+    def __init__(self, embed_dim, num_heads, kernel_transformation=None, name=None):
         super(PerformerAttention, self).__init__(name=name)
         self.embed_dim = embed_dim
         self.num_heads = num_heads
-        self.nb_features = nb_features
         self.kernel_transformation = kernel_transformation or self.default_kernel_transformation
 
         assert embed_dim % num_heads == 0, "Embedding dimension must be divisible by the number of heads."
@@ -53,6 +52,7 @@ class PerformerAttention(tf.Module):
         k = self.split_heads(k, batch_size)  # (batch_size, num_heads, seq_len, depth)
         v = self.split_heads(v, batch_size)  # (batch_size, num_heads, seq_len, depth)
 
+        # Apply kernel transformation
         q_prime = self.kernel_transformation(q)  # Apply kernel transformation
         k_prime = self.kernel_transformation(k)
 
