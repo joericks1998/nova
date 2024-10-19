@@ -3,10 +3,10 @@ from . import attention, ffnn
 from .constants import transformer_constants
 
 class TransformerLayer(tf.Module):
-    def __init__(self, embed_dim, batch_size, dropout_rate = 0.1, name = None):
+    def __init__(self, embed_dim, batch_size, num_heads, dff, dropout_rate = 0.1, name = None):
         super().__init__(name = name)
-        self.attention_mech = attention.PerformerAttention(embed_dim, transformer_constants.num_attention_heads)
-        self.ffnn = ffnn.FFNetwork(embed_dim, transformer_constants.dff)
+        self.attention_mech = attention.PerformerAttention(embed_dim, num_heads)
+        self.ffnn = ffnn.FFNetwork(embed_dim, dff)
         # layer normalization
         self.layernorm = tf.keras.layers.LayerNormalization(epsilon = 1e6)
         # dropout
