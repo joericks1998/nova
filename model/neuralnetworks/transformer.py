@@ -1,6 +1,5 @@
 import tensorflow as tf
 from . import attention, ffnn
-from .constants import transformer_constants
 
 class TransformerLayer(tf.Module):
     def __init__(self, embed_dim, batch_size, num_heads, dff, dropout_rate = 0.1, name = None):
