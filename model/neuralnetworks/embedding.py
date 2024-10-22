@@ -1,10 +1,12 @@
 import tensorflow as tf
 
+def posEncoding(seq_len, embedding_dim):
+    pass
+
 class EmbeddingLayer(tf.Module):
     def __init__(self, embedding_dim, name=None):
         # Initialize the EmbeddingLayer with the given embedding dimension and optional name
         super().__init__(name=name)
-        self.initializer = tf.keras.initializers.HeNormal()  # Set the initializer for embeddings
         self.embedding_dim = embedding_dim  # Store the dimension of the embeddings
         self.embeddings = None  # Initialize embeddings to None
         self.h = {}  # Dictionary to map words to their indices
@@ -14,15 +16,19 @@ class EmbeddingLayer(tf.Module):
         if not isinstance(word, str):
             return "embedding model is for strings only"  # Ensure the input is a string
 
+        # Define initializer
+        initializer = tf.keras.initializers.HeNormal()
+
         if self.embeddings is None:
             # If embeddings are not initialized, create the first embedding
             self.h[word] = 0  # Assign index 0 to the new word
-            self.embeddings = tf.Variable(self.initializer([1, self.embedding_dim]))  # Initialize embeddings
+            self.embeddings = tf.Variable(initializer(shape = (1, self.embedding_dim)))
         elif word not in self.h.keys():
             # If the word is new and not yet in the dictionary
             self.h[word] = self.embeddings.shape[0]  # Assign the next index to the new word
             # Create a new embedding and concatenate it to the existing embeddings
-            new_embeddings = tf.concat([self.embeddings, tf.Variable(self.initializer([1, self.embedding_dim]))], axis=0)
+            new_embedding = tf.Variable(initializer(shape = (1, self.embedding_dim)))
+            new_embeddings = tf.concat([self.embeddings, new_embedding], axis=0)
             self.embeddings = tf.Variable(new_embeddings)  # Update embeddings with the new concatenated tensor
 
         # Retrieve the embedding for the given word using its index
