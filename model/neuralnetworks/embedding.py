@@ -16,6 +16,7 @@ class EmbeddingLayer(tf.Module):
         if not isinstance(word, str):
             return "embedding model is for strings only"  # Ensure the input is a string
 
+        #Test again
         # Define initializer
         initializer = tf.keras.initializers.HeNormal()
 
