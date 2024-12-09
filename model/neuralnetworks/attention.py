@@ -38,6 +38,7 @@ class PerformerAttention(tf.Module):
         # creating lookahead mask
         lookahead_mask = masking.create_look_ahead_mask(seq_len)
 
+        #dotting q,k,v
         q = tf.tensordot(q, self.wq, axes=[[2], [0]])  # (batch_size, seq_len, embed_dim)
         k = tf.tensordot(k, self.wk, axes=[[2], [0]])  # (batch_size, seq_len, embed_dim)
         v = tf.tensordot(v, self.wv, axes=[[2], [0]])  # (batch_size, seq_len, embed_dim)
@@ -51,7 +52,7 @@ class PerformerAttention(tf.Module):
         q = self.split_heads(q, batch_size)  # (batch_size, num_heads, seq_len, depth)
         k = self.split_heads(k, batch_size)  # (batch_size, num_heads, seq_len, depth)
         v = self.split_heads(v, batch_size)  # (batch_size, num_heads, seq_len, depth)
-    
+
         # Apply kernel transformation
         q_prime = self.kernel_transformation(q)  # Apply kernel transformation
         k_prime = self.kernel_transformation(k)
