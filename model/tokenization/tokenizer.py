@@ -10,5 +10,3 @@ class Tokenizer:
             self.token_q = []
         self.token_q += string.split(" ")
         return
-
-#testing this again
