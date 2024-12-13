@@ -1,11 +1,12 @@
 import tensorflow as tf
 from . import attention, ffnn
+from static import constants
 
-class TransformerLayer(tf.Module):
-    def __init__(self, embed_dim, batch_size, num_heads, dff, dropout_rate = 0.1, name = None):
-        super().__init__(name = name)
-        self.attention_mech = attention.PerformerAttention(embed_dim, num_heads)
-        self.ffnn = ffnn.FFNetwork(embed_dim, dff)
+class Layer(tf.Module):
+    def __init__(self, embed_dim, num_heads, dff, dropout_rate = constants.dropout_rate, name = None):
+        super(Layer, self).__init__(name = name)
+        self.attention_mech = attention.Layer(embed_dim, num_heads)
+        self.ffnn = ffnn.Layer(embed_dim, dff)
         # layer normalization
         self.layernorm = tf.keras.layers.LayerNormalization(epsilon = 1e6)
         # dropout

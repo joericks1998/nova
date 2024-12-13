@@ -1,9 +1,9 @@
 import tensorflow as tf
 from . import masking
 
-class PerformerAttention(tf.Module):
+class Layer(tf.Module):
     def __init__(self, embed_dim, num_heads, kernel_transformation=None, name=None):
-        super(PerformerAttention, self).__init__(name=name)
+        super(Layer, self).__init__(name=name)
         self.embed_dim = embed_dim
         self.num_heads = num_heads
         self.kernel_transformation = kernel_transformation or self.default_kernel_transformation
