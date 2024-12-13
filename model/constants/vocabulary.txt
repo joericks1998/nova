@@ -82,3 +82,9 @@ sizeof
 %string
 %func
 %class
+;
+{
+}
+{}
+<pad>
+<STOP>
