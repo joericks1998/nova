@@ -3,7 +3,7 @@ import tensorflow as tf
 def posEncoding(seq_len, embedding_dim):
     pass
 
-class EmbeddingLayer(tf.Module):
+class Layer(tf.Module):
     def __init__(self, embedding_dim, name=None):
         # Initialize the EmbeddingLayer with the given embedding dimension and optional name
         super().__init__(name=name)
