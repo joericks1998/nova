@@ -4,7 +4,7 @@ from neuralnetworks import ffnn, embedding, attention, masking, transformer
 from static import constants
 
 
-class Nova:
+class Model:
     def __init__(self, vocabulary):
         self.emd_lyr = embedding.Layer(constants.d_model, name = "nova_embedding_layer")
         self.tfmrs = {}
