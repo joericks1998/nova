@@ -1,6 +1,7 @@
 import numpy as np
 import tensorflow as tf
 from neuralnetworks import ffnn, embedding, attention, masking, transformer
+from static import constants
 
 class FinalLayer(tf.keras.layers.Layer):
     def __init__(self, vocab_size, d_model):
@@ -14,10 +15,10 @@ class FinalLayer(tf.keras.layers.Layer):
 
 class Nova:
     def __init__(self, vocabulary):
-        self.emd_lyr = embedding.EmbeddingLayer(256, name = "nova embedding layer")
+        self.emd_lyr = embedding.EmbeddingLayer(constants.d_model, name = "nova embedding layer")
         tfmrs = {}
-        for i in range (1,33):
+        for i in range (1, constants.nova_tfmr + 1):
             tfmrs = {**tfmrs, **{i: transformer.TransformerLayer(size, batch.shape[1], 4 , 4*size)}}
         self.tfmrs = tfmrs
-        self.final = FinalLayer(len(vocabulary), 256)
+        self.final = FinalLayer(len(vocabulary), constants.d_model)
         return
