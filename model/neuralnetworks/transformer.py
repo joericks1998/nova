@@ -4,7 +4,7 @@ from static import constants
 
 class Layer(tf.Module):
     def __init__(self, embed_dim, num_heads, dff, dropout_rate = constants.dropout_rate, name = None):
-        super().__init__(name = name)
+        super(Layer, self).__init__(name = name)
         self.attention_mech = attention.Layer(embed_dim, num_heads)
         self.ffnn = ffnn.Layer(embed_dim, dff)
         # layer normalization

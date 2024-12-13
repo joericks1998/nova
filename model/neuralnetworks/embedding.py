@@ -6,7 +6,7 @@ def posEncoding(seq_len, embedding_dim):
 class Layer(tf.Module):
     def __init__(self, embedding_dim, name=None):
         # Initialize the EmbeddingLayer with the given embedding dimension and optional name
-        super().__init__(name=name)
+        super(Layer, self).__init__(name=name)
         self.embedding_dim = embedding_dim  # Store the dimension of the embeddings
         self.embeddings = None  # Initialize embeddings to None
         self.h = {}  # Dictionary to map words to their indices
