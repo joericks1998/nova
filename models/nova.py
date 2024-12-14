@@ -15,10 +15,10 @@ class Model:
                     constants.num_heads , constants.dff)}
                 }
         self.tfmrs = tfmrs
-        self.final = final.Layer(len(self.vocabulary), constants.d_model)
+        self.final = final.Layer(len(constants.vocabulary), constants.d_model)
         return
 
-    def fpass(self, in_batch):
+    def embedPass(self, in_batch):
         # embedding tokenized batch
         big_stack = []
         for seq in in_batch:
@@ -26,20 +26,34 @@ class Model:
             big_stack.append(small_stack)
 
         # stacking all batches into the embedding batch
-        embed_batch = tf.stack(big_stack)
+        return tf.stack(big_stack)
 
-        # pass through transformer layers
+    def transformPass(self, embed_batch):
         fpass_batch = embed_batch
         for tfmr in self.tfmrs.values():
             fpass_batch = tfmr(fpass_batch)
+        return fpass_batch
+
+    def fPass(self, in_batch):
+        #embed token batch
+        embed_batch = self.embedPass(in_batch)
+
+        # pass through transformer layers
+        tfmr_batch = self.transformPass(embed_batch)
 
         # pass through last layer for probabilities and refiting
-        out_batch = self.final(fpass_batch)
+        out_batch = self.final(tfmr_batch)
 
         # evaluate output batch
         logits = tf.argmax(out_batch[:,-1,:], axis = -1)
 
-        return logits
+        # use logits to obtain next pass, or stop running
+        out_batch = [[constants.vocabulary[i]] for i in logits]
+
+        return out_batch
+
+    def genPass(self, in_batch):
+        return self.fPass(in_batch)
 
 
     def backpropagate(self, in_batch):
