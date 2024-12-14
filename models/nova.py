@@ -34,7 +34,7 @@ class Model:
             fpass_batch = tfmr(fpass_batch)
         return fpass_batch
 
-    def fPass(self, in_batch):
+    def fPass(self, in_batch, training = False):
         #embed token batch
         embed_batch = self.embedPass(in_batch)
 
@@ -44,20 +44,7 @@ class Model:
         # pass through last layer for probabilities and refiting
         out_batch = self.final(tfmr_batch)
 
-        # evaluate output batch
+        # evaluate output batch (using armax, which may not be the best)
         logits = tf.argmax(out_batch[:,-1,:], axis = -1)
 
-        # use logits to obtain next pass, or stop running
-        out_batch = [[constants.vocabulary[i]] for i in logits]
-
-        return out_batch
-
-    def genPass(self, in_batch):
-        return self.fPass(in_batch)
-
-
-    def backpropagate(self, in_batch):
-        # running forward pass
-        fpass_batch = self.fpass(in_batch)
-
-        return fpass_batch
+        return logits
