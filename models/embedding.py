@@ -65,3 +65,7 @@ class Layer(tf.Module):
         addition_layer.embeddings = tf.Variable(new_layer)  # Update the new layer with the combined embeddings
 
         return addition_layer  # Return the new EmbeddingLayer with combined embeddings
+
+    @property
+    def Trainables(self):
+        return [self.embeddings]

@@ -9,5 +9,3 @@ vocab_path = "static/vocabulary.txt"
 vocabulary = []
 with open(vocab_path, 'r') as file:
     vocabulary = file.read().split('\n')
-
-stop_idx = vocabulary.index("<STOP>")

@@ -9,3 +9,8 @@ class Layer(tf.keras.layers.Layer):
         logits = self.projection(inputs)  # Project to vocab_size
         probabilities = tf.nn.softmax(logits, axis=-1)  # Convert to probabilities
         return probabilities
+
+    @property
+    def Trainables(self):
+        return [self.projection.kernel,
+                self.projection.bias]

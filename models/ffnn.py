@@ -5,8 +5,13 @@ class Layer(tf.Module):
         super(Layer, self).__init__(name=name)
         self.dense1 = tf.keras.layers.Dense(dff, activation='relu')
         self.dense2 = tf.keras.layers.Dense(d_model)
-
     def __call__(self, x):
         x = self.dense1(x)
         x = self.dense2(x)
         return x
+    @property
+    def Trainables(self):
+        return [self.dense1.kernel,
+                self.dense1.bias,
+                self.dense2.kernel,
+                self.dense2.bias]

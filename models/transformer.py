@@ -26,3 +26,9 @@ class Layer(tf.Module):
         o_actual = self.layernorm(attention_o + outputs)
 
         return outputs
+
+    @property
+    def Trainables(self):
+        tfmr_trainables = [self.layernorm.gamma,
+                            self.layernorm.beta]
+        return self.attention_mech.Trainables + self.ffnn.Trainables + tfmr_trainables

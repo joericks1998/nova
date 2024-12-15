@@ -48,3 +48,11 @@ class Model:
         logits = tf.argmax(out_batch[:,-1,:], axis = -1)
 
         return logits
+
+    @property
+    def Trainables(self):
+        trainables = self.embed.Trainables
+        for tfmr in self.tfmrs.values():
+            trainables += tfmr.Trainables
+        trainables += self.final.Trainables
+        return trainables
