@@ -10,7 +10,7 @@ class Layer(tf.Module):
         x = self.dense2(x)
         return x
     @property
-    def Trainables(self):
+    def Parameters(self):
         return [self.dense1.kernel,
                 self.dense1.bias,
                 self.dense2.kernel,

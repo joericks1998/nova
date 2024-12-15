@@ -72,5 +72,5 @@ class Layer(tf.Module):
         return self.layernorm(output)
 
     @property
-    def Trainables(self):
+    def Parameters(self):
         return [self.wq, self.wk, self.wv, self.layernorm.gamma, self.layernorm.beta]

@@ -11,6 +11,6 @@ class Layer(tf.keras.layers.Layer):
         return probabilities
 
     @property
-    def Trainables(self):
+    def Parameters(self):
         return [self.projection.kernel,
                 self.projection.bias]

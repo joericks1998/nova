@@ -28,7 +28,7 @@ class Layer(tf.Module):
         return outputs
 
     @property
-    def Trainables(self):
+    def Parameters(self):
         tfmr_trainables = [self.layernorm.gamma,
                             self.layernorm.beta]
-        return self.attention_mech.Trainables + self.ffnn.Trainables + tfmr_trainables
+        return self.attention_mech.Parameters + self.ffnn.Parameters + tfmr_trainables

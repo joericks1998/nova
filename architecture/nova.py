@@ -3,8 +3,9 @@ import tensorflow as tf
 from . import embedding, transformer, final
 from static import constants, _math
 
-class Model:
+class Model(tf.Module):
     def __init__(self):
+        super(Model, self).__init__()
         self.embed = embedding.Layer(constants.d_model,
             name = "nova_embedding_layer")
         tfmrs = {}
