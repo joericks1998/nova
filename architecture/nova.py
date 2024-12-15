@@ -3,7 +3,7 @@ import tensorflow as tf
 from . import embedding, transformer, final
 from static import constants, _math
 
-class Model(tf.Module):
+class Model(tf.keras.Model):
     def __init__(self):
         super(Model, self).__init__()
         self.embed = embedding.Layer(constants.d_model,
@@ -51,9 +51,9 @@ class Model(tf.Module):
         return logits
 
     @property
-    def Trainables(self):
-        trainables = self.embed.Trainables
+    def Parameters(self):
+        parameters = self.embed.Parameters
         for tfmr in self.tfmrs.values():
-            trainables += tfmr.Trainables
-        trainables += self.final.Trainables
-        return trainables
+            parameters += tfmr.Parameters
+        parameters += self.final.Parameters
+        return parameters

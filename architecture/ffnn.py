@@ -15,3 +15,5 @@ class Layer(tf.Module):
                 self.dense1.bias,
                 self.dense2.kernel,
                 self.dense2.bias]
+    
+    def save(self, io_dir = None):
