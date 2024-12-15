@@ -26,6 +26,8 @@ class Layer(tf.Module):
         o_actual = self.layernorm(attention_o + outputs)
 
         return outputs
+    def get_config(self):
+        return
 
     @property
     def Parameters(self):

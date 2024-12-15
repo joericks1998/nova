@@ -6,6 +6,10 @@ class Layer(tf.Module):
         super(Layer, self).__init__(name=name)
         self.embed_dim = embed_dim
         self.num_heads = num_heads
+        self.config = {
+            "embed_dim": embed_dim,
+            "num_heads": num_heads
+        }
         self.kernel_transformation = kernel_transformation or self.default_kernel_transformation
 
         assert embed_dim % num_heads == 0, "Embedding dimension must be divisible by the number of heads."
@@ -70,7 +74,11 @@ class Layer(tf.Module):
 
         #normalize outputs
         return self.layernorm(output)
-
+    def get_config(self):
+        return self.config
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
     @property
     def Parameters(self):
         return [self.wq, self.wk, self.wv, self.layernorm.gamma, self.layernorm.beta]
