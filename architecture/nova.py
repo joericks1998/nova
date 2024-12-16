@@ -2,21 +2,23 @@ import numpy as np
 import tensorflow as tf
 from . import embedding, transformer, final
 from static import constants, _math
+from utils import model_io
 
 class Model(tf.keras.Model):
-    def __init__(self):
+    def __init__(self, d_model=constants.d_model, num_heads=constants.num_heads,
+                dff = constants.dff, vocab_len = constants.vocab_len,
+                num_tfmrs = constants.nova_tfmr):
         super(Model, self).__init__()
-        self.embed = embedding.Layer(constants.d_model,
+        self.embed = embedding.Layer(d_model,
             name = "nova_embedding_layer")
         tfmrs = {}
-        for i in range (1, constants.nova_tfmr + 1):
+        for i in range (1, num_tfmrs + 1):
             tfmrs = {
                 **tfmrs,
-                **{i: transformer.Layer(constants.d_model,
-                    constants.num_heads , constants.dff)}
+                **{i: transformer.Layer(d_model, num_heads , dff)}
                 }
         self.tfmrs = tfmrs
-        self.final = final.Layer(len(constants.vocabulary), constants.d_model)
+        self.final = final.Layer(vocab_len, d_model)
         return
 
     def embedPass(self, in_batch):
@@ -49,7 +51,11 @@ class Model(tf.keras.Model):
         logits = tf.argmax(out_batch[:,-1,:], axis = -1)
 
         return logits
-
+    def get_config(self):
+        return model_io.master_config(Model.__init__)
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
     @property
     def Parameters(self):
         parameters = self.embed.Parameters

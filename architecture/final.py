@@ -6,12 +6,6 @@ class Layer(tf.keras.layers.Layer):
         # Initialize the parent `tf.keras.layers.Layer` class.
         super(Layer, self).__init__()
 
-        # Store the configuration of the layer for serialization purposes.
-        self.config = {
-            "vocab_size": vocab_size,  # Number of tokens in the vocabulary.
-            "d_model": d_model         # Dimensionality of the input features.
-        }
-
         # Define a dense layer to project inputs to `vocab_size` dimensions.
         # This is typically used as the output layer of a generative model.
         self.projection = tf.keras.layers.Dense(vocab_size)
@@ -27,7 +21,7 @@ class Layer(tf.keras.layers.Layer):
 
     # Serialize the layer's configuration into a dictionary.
     def get_config(self):
-        return self.config  # Return the stored configuration.
+        return master_config(Layer.__init__) # Return the stored configuration.
 
     # Reconstruct the layer from a serialized configuration.
     @classmethod

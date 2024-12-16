@@ -65,7 +65,7 @@ class Layer(tf.Module):
 
         return addition_layer  # Return the new EmbeddingLayer with combined embeddings
     def get_config(self):
-        return self.config
+        return master_config(Layer.__init__)
     @classmethod
     def from_config(cls, config):
         return cls(**config)

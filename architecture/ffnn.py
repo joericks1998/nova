@@ -6,12 +6,6 @@ class Layer(tf.Module):
         # Initialize the parent `tf.Module` class with an optional name.
         super(Layer, self).__init__(name=name)
 
-        # Store the configuration of the layer for serialization.
-        self.config = {
-            "d_model": d_model,  # Output dimensionality.
-            "dff": dff           # Intermediate feedforward dimensionality.
-        }
-
         # Define the first dense layer with a ReLU activation function.
         self.dense1 = tf.keras.layers.Dense(dff, activation='relu')
 
@@ -28,7 +22,7 @@ class Layer(tf.Module):
 
     # Serialize the layer's configuration into a dictionary.
     def get_config(self):
-        return self.config  # Return the stored configuration.
+        return master_config(Layer.__init__)  # Return the stored configuration.
 
     # Reconstruct the layer from a serialized configuration.
     @classmethod

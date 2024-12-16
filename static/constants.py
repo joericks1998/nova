@@ -9,3 +9,5 @@ vocab_path = "model/vocabulary.txt"
 vocabulary = []
 with open(vocab_path, 'r') as file:
     vocabulary = file.read().split('\n')
+
+vocab_len = len(vocabulary)
