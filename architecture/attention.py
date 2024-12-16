@@ -70,11 +70,16 @@ class Layer(tf.Module):
 
         #normalize outputs
         return self.layernorm(output)
+
+    #get config for serialization
     def get_config(self):
         return master_config(Layer.__init__)
+
+    #custom config method (also for serialization)
     @classmethod
     def from_config(cls, config):
         return cls(**config)
+    #parameters getter for model training
     @property
     def Parameters(self):
         return [self.wq, self.wk, self.wv, self.layernorm.gamma, self.layernorm.beta]

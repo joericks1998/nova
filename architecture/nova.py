@@ -51,11 +51,17 @@ class Model(tf.keras.Model):
         logits = tf.argmax(out_batch[:,-1,:], axis = -1)
 
         return logits
+
+    #get config for serialization
     def get_config(self):
         return model_io.master_config(Model.__init__)
+
+    #custom config method (also for serialization)
     @classmethod
     def from_config(cls, config):
         return cls(**config)
+    
+    #parameters getter for model training
     @property
     def Parameters(self):
         parameters = self.embed.Parameters

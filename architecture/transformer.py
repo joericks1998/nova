@@ -33,11 +33,17 @@ class Layer(tf.Module):
         o_actual = self.layernorm(attention_o + outputs)
 
         return outputs
+
+    #parameters getter for model training
     def get_config(self):
         return master_config(Layer.__init__)
+
+    #custom config method (also for serialization)
     @classmethod
     def from_config(cls,config):
         return cls(**config)
+
+    #parameters getter for model training
     @property
     def Parameters(self):
         tfmr_trainables = [self.layernorm.gamma,

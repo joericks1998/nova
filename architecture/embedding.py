@@ -4,10 +4,10 @@ def posEncoding(seq_len, embedding_dim):
     pass
 
 class Layer(tf.Module):
-    def __init__(self, embedding_dim, name=None):
+    def __init__(self, d_model, name=None):
         # Initialize the EmbeddingLayer with the given embedding dimension and optional name
         super(Layer, self).__init__(name=name)
-        self.config = {"embedding_dim": embedding_dim} # Store the dimension of the embeddings for serialization
+        self.d_model = d_model # Store the dimension of the embeddings for serialization
         self.embeddings = None  # Initialize embeddings to None
         self.h = {}  # Dictionary to map words to their indices
 
@@ -24,14 +24,14 @@ class Layer(tf.Module):
             print("Adding a new word to the model...")
             # If embeddings are not initialized, create the first embedding
             self.h[word] = 0  # Assign index 0 to the new word
-            self.embeddings = tf.Variable(initializer(shape = (1, self.config["embedding_dim"])))
+            self.embeddings = tf.Variable(initializer(shape = (1, self.d_model)))
             print("Done.")
         elif word not in self.h.keys():
             print("Adding a new word to the model...")
             # If the word is new and not yet in the dictionary
             self.h[word] = self.embeddings.shape[0]  # Assign the next index to the new word
             # Create a new embedding and concatenate it to the existing embeddings
-            new_embedding = tf.Variable(initializer(shape = (1, self.config["embedding_dim"])))
+            new_embedding = tf.Variable(initializer(shape = (1, self.d_model)))
             new_embeddings = tf.concat([self.embeddings, new_embedding], axis=0)
             self.embeddings = tf.Variable(new_embeddings)  # Update embeddings with the new concatenated tensor
 
@@ -64,11 +64,17 @@ class Layer(tf.Module):
         addition_layer.embeddings = tf.Variable(new_layer)  # Update the new layer with the combined embeddings
 
         return addition_layer  # Return the new EmbeddingLayer with combined embeddings
+
+    #get config for serialization
     def get_config(self):
         return master_config(Layer.__init__)
+
+    #custom config method (also for serialization)
     @classmethod
     def from_config(cls, config):
         return cls(**config)
+    
+    #parameters getter for model training
     @property
     def Parameters(self):
         return [self.embeddings]
