@@ -18,6 +18,6 @@ def word_split(string):
     return t
 
 def build_go(tokens, ground_truth = True):
-    if ground_truth = False:
+    if ground_truth == False:
         return
     return

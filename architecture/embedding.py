@@ -21,13 +21,11 @@ class Layer(tf.Module):
         initializer = tf.keras.initializers.HeNormal()
 
         if self.embeddings is None:
-            print("Adding a new word to the model...")
             # If embeddings are not initialized, create the first embedding
             self.h[word] = 0  # Assign index 0 to the new word
             self.embeddings = tf.Variable(initializer(shape = (1, self.d_model)))
             print("Done.")
         elif word not in self.h.keys():
-            print("Adding a new word to the model...")
             # If the word is new and not yet in the dictionary
             self.h[word] = self.embeddings.shape[0]  # Assign the next index to the new word
             # Create a new embedding and concatenate it to the existing embeddings
@@ -36,7 +34,6 @@ class Layer(tf.Module):
             self.embeddings = tf.Variable(new_embeddings)  # Update embeddings with the new concatenated tensor
 
         # Retrieve the embedding for the given word using its index
-        print("Retrieving existing embedding")
         return tf.nn.embedding_lookup(self.embeddings, self.h[word])
 
     def __add__(self, other_layer):
@@ -73,7 +70,7 @@ class Layer(tf.Module):
     @classmethod
     def from_config(cls, config):
         return cls(**config)
-    
+
     #parameters getter for model training
     @property
     def Parameters(self):

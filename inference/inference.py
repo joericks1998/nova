@@ -13,11 +13,25 @@ class Queue:
         self.map = {**self.map, **{variable: value}}
         return
 
-def Generator(text, model, tokenizer):
+def vocabMapper(logit, vocab = data_io.getVocab()):
+    return vocab[logit]
+
+
+def Generator(text, model = None, tokenizer = None, max_t = 30):
     tokens = tokenizer.word_split(text)
-    logits = model.fpass([tokens])
-    vocab = data_io.getVocab()
-    return logits
+    batch = [tokens]
+    logits = model.fPass(batch)
+    output = list(map(vocabMapper, logits))
+    i = 0
+    while i < max_t:
+        print(f"Generated tokens {i} of {max_t}")
+        batch[0] += output
+        logits = model.fPass(batch)
+        output = list(map(vocabMapper, logits))
+        if "<stop>" in output:
+            return batch
+        i+=1
+    return batch
 
 
 def Trainer():
