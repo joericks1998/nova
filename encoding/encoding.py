@@ -1,5 +1,8 @@
 import re
 import tensorflow as tf
+import numpy as np
+import os
+import json
 
 class Memory:
     def __init__(self):
@@ -13,20 +16,22 @@ class Memory:
         self.Q[cls].append(token)
         return
 
-class Encoder(tf.Module):
-    def __init__(self, tags, n_limit = None, predefinitions = {}):
+class SemanticParser(tf.Module):
+    def __init__(self, tags = None, n_limit = None, predefinitions = None,
+                transition_matrix = None, transition_states = None):
         self.max_combos = (len(tags)-1)**n_limit
-        self.TransitionMatrix = tf.zeros(shape = (1, len(tags)-1))
-        self.TransitionStates = {}
-        self.tags = {}
-        i = 0
-        for tag in tags[:len(tags)-1]:
-            self.tags[tag] = i
-            i+=1
+        if not transition_matrix:
+            self.TransitionMatrix = tf.zeros(shape = (1, len(tags.values())))
+        else:
+            self.TransitionMatrix = transition_matrix
+        if not transition_states:
+            self.TransitionStates = {}
+        else:
+            self.TransitionStates = transition_states
+        self.tags = tags
         self.predefinitions = predefinitions
-        self.tag_map = {}
-    def __call__(self, sequence):
-        #pretag sequences
+    def __call__(self, sequence, memory = None):
+        #pretag tokens in sequence
         tagged_data = []
         for token in sequence:
             tagged = False
@@ -57,6 +62,15 @@ class Encoder(tf.Module):
             elif v == '~relation~':
                 encoded_arr.append(k)
             else:
+                if v=='~value~':
+                    if k.isdigit():
+                        v = '~value.int~'
+                    elif k.isdecimal():
+                        v = '~value.float~'
+                    elif k.lower() in ("null", "none"):
+                        v = '~value.null~'
+                    else:
+                        v = 'value.string~'
                 encoded_arr.append(v)
         return " ".join(encoded_arr)
     def addTransition(self, tag_seq, targets):
@@ -71,4 +85,17 @@ class Encoder(tf.Module):
         depth = len(self.tags.keys())
         transition = tf.one_hot([self.tags[t] for t in targets], depth)
         self.TransitionMatrix = tf.concat([self.TransitionMatrix, transition], axis = 0)
+        return
+    def save(self, path = None):
+        os.makedirs(path, exist_ok = True)
+        with open(os.path.join(path, "predefined_tags.json"),  "w") as f:
+            json.dump(self.predefinitions, f)
+        with open(os.path.join(path, "tags.json"),  "w") as f:
+            json.dump(self.tags, f)
+        with open(os.path.join(path, "transition_states.json"),  "w") as f:
+            json.dump(self.TransitionStates, f)
+        np.save(os.path.join(path,"transition_matrix.npy"), self.TransitionMatrix.numpy())
+        return
+    @classmethod
+    def load(cls):
         return
