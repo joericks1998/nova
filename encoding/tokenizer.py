@@ -14,7 +14,7 @@ class SpecialTokens:
 
 def word_split(string):
     t = []
-    t += string.split(" ")
+    t += string.lower().split(" ")
     return t
 
 def build_go(tokens, ground_truth = True):

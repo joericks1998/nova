@@ -1,14 +1,23 @@
 import re
+import json
 
-class Tokenizer:
+class SpecialTokens:
     def __init__(self):
-        self.token_q = []
-        self.var_q = []
-
-    def __call__(self, string):
-        if self.token_q:
-            self.token_q = []
-        self.token_q += string.split(" ")
+        with open('tokenization.json', 'r') as f:
+            self.token_data = json.load(f)
+    @property
+    def Data(self):
+        return self.token_data
+    @Data.setter
+    def Data(self):
         return
 
-#testing this again
+def word_split(string):
+    t = []
+    t += string.lower().split(" ")
+    return t
+
+def build_go(tokens, ground_truth = True):
+    if ground_truth == False:
+        return
+    return

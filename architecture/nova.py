@@ -5,12 +5,12 @@ from static import constants, _math
 from utils import model_io
 
 class Model(tf.keras.Model):
-    def __init__(self, d_model=constants.d_model, num_heads=constants.num_heads,
+    def __init__(self, d_model = constants.d_model, num_heads=constants.num_heads,
                 dff = constants.dff, vocab_len = constants.vocab_len,
                 num_tfmrs = constants.nova_tfmr):
         super(Model, self).__init__()
-        self.embed = embedding.Layer(d_model,
-            name = "nova_embedding_layer")
+        self.embed = embedding.Layer(d_model, name = "nova_embedding_layer")
+        #initialize padding vector
         tfmrs = {}
         for i in range (1, num_tfmrs + 1):
             tfmrs = {
@@ -27,7 +27,6 @@ class Model(tf.keras.Model):
         for seq in in_batch:
             small_stack = tf.stack([self.embed(tkn) for tkn in seq])
             big_stack.append(small_stack)
-
         # stacking all batches into the embedding batch
         return tf.stack(big_stack)
 
@@ -39,18 +38,15 @@ class Model(tf.keras.Model):
 
     def fPass(self, in_batch, training = False):
         #embed token batch
-        embed_batch = self.embedPass(in_batch)
+        embd_logits = self.embedPass(in_batch)
 
         # pass through transformer layers
-        tfmr_batch = self.transformPass(embed_batch)
+        tfmr_logits = self.transformPass(embd_logits)
 
         # pass through last layer for probabilities and refiting
-        out_batch = self.final(tfmr_batch)
+        probabilities = self.final(tfmr_logits)
 
-        # evaluate output batch (using armax, which may not be the best)
-        logits = tf.argmax(out_batch[:,-1,:], axis = -1)
-
-        return logits
+        return probabilities
 
     #get config for serialization
     def get_config(self):
@@ -60,7 +56,7 @@ class Model(tf.keras.Model):
     @classmethod
     def from_config(cls, config):
         return cls(**config)
-    
+
     #parameters getter for model training
     @property
     def Parameters(self):
