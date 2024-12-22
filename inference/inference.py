@@ -4,18 +4,9 @@ from text import data_io
 from static import _math
 import numpy as np
 
-class Queue:
-    def __init__(self):
-        self.map = {}
-    @property
-    def Pair(self):
-        return self.map.items()
-    @Pair.setter
-    def Pair(self, variable, value):
-        self.map = {**self.map, **{variable: value}}
-        return
+model_path = "/Users/joericks/Desktop/nova/model"
 
-def vocabMapper(logit, vocab = data_io.getVocab()):
+def vocabMapper(logit, vocab = data_io.getVocab(path = model_path)):
     return vocab[logit]
 
 def inBatch(text_batch, tokenizer):
@@ -29,9 +20,6 @@ def inBatch(text_batch, tokenizer):
         else:
             padBatch.append(seq)
     return padBatch
-
-# def inPadding(in_batch):
-#     return in_batch
 
 def InferAll(ps):
     idx = ps.shape[1]-1
