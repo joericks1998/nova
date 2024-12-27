@@ -25,7 +25,11 @@ class Memory:
 class Encoder(tf.Module):
     def __init__(self, tags=None, n_limit=None, predefinitions=None,
                  transition_matrix=None, transition_states=None):
-        self.max_combos = (len(tags) - 1) ** n_limit  # Maximum possible combinations for sequences.
+        # Store constants for encoder pattern limits
+        self.constants = {
+            "n_limit": n_limit,
+            "max_combos": (len(tags) - 1) ** n_limit
+        }
 
         # Initialize transition matrix; defaults to a zero matrix if not provided.
         if transition_matrix is None:
@@ -43,8 +47,9 @@ class Encoder(tf.Module):
         self.predefinitions = predefinitions  # Predefined tag mappings for tokens.
 
     # Encoding function that processes a sequence and optionally uses a Memory instance.
-    def __call__(self, sequence, memory=None):
+    def encode(self, sequence, memory=None):
         # Pre-tag tokens in the sequence based on predefinitions.
+        print(sequence)
         tagged_data = []
         for token in sequence:
             tagged = False
@@ -59,7 +64,6 @@ class Encoder(tf.Module):
         i = 0
         for k in tag_dict.keys():
             tag_seq = list(tag_dict.values())
-            print(tag_seq)
             if not tag_dict[k]:  # If the token has no tag.
                 if i == 0:
                     idx = self.TransitionStates[""]  # Default state if no prior tokens.
@@ -94,6 +98,12 @@ class Encoder(tf.Module):
                         v = '~value.string~'
                 encoded_arr.append(v)  # Add token to encoded array.
         return " ".join(encoded_arr)  # Return the encoded sequence as a string.
+
+    def __call__(self, batch, memory = None):
+        encoded_batch = []
+        for sequence in batch:
+            encoded_batch.append(self.encode([b.decode("utf-8") for b in sequence.numpy()], memory=memory))
+        return tf.Variable(encoded_batch)
 
     # Add a new transition to the transition matrix.
     def addTransition(self, tag_seq, target):
@@ -141,6 +151,8 @@ class Encoder(tf.Module):
             json.dump(self.tags, f)
         with open(os.path.join(path, "transition_states.json"), "w") as f:
             json.dump(self.TransitionStates, f)
+        with open(os.path.join(path, "constants.json"), "w") as f:
+            json.dump(self.constants, f)
         np.save(os.path.join(path, "transition_matrix.npy"), self.TransitionMatrix.numpy())
         return
 
@@ -153,6 +165,8 @@ class Encoder(tf.Module):
             tags = json.load(f)
         with open(os.path.join(path, "transition_states.json"), "r") as f:
             transition_states = json.load(f)
+        with open(os.path.join(path, "constants.json"), "r") as f:
+            n_limit = json.load(f)["n_limit"]
         transition_matrix = np.load(os.path.join(path, "transition_matrix.npy"))
-        return cls(tags=tags, n_limit=7, predefinitions=predef_tags,
+        return cls(tags=tags, n_limit=n_limit, predefinitions=predef_tags,
                    transition_states=transition_states, transition_matrix=transition_matrix)

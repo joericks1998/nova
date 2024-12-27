@@ -2,6 +2,7 @@ import tensorflow as tf
 from training import training
 from text import data_io
 from static import _math
+from semantics import parser
 import numpy as np
 
 model_path = "/Users/joericks/Desktop/nova/model"
@@ -34,8 +35,11 @@ def InferEfficient(ps):
 
 def Generator(text_batch, model = None, tokenizer = None, max_t = 25):
     print(f"Performing first pass..")
+    encoder = parser.Encoder.load("model/semantics")
     in_batch = tf.Variable(inBatch(text_batch, tokenizer))
     in_len = in_batch.shape[1]
+    in_batch = encoder(in_batch)
+    print(in_batch)
     j = 0
     out_batch = None
     print(f"Generating...")
