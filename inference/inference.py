@@ -20,7 +20,7 @@ def inBatch(text_batch, tokenizer):
             padBatch.append(seq+pads)
         else:
             padBatch.append(seq)
-    return padBatch
+    return tf.Variable(padBatch)
 
 def InferAll(ps):
     idx = ps.shape[1]-1
@@ -36,7 +36,7 @@ def InferEfficient(ps):
 def Generator(text_batch, model = None, tokenizer = None, max_t = 25):
     print(f"Performing first pass..")
     encoder = parser.Encoder.load("model/semantics")
-    in_batch = tf.Variable(inBatch(text_batch, tokenizer))
+    in_batch = inBatch(text_batch, tokenizer)
     in_len = in_batch.shape[1]
     in_batch = encoder(in_batch)
     print(in_batch)

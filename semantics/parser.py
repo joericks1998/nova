@@ -47,63 +47,64 @@ class Encoder(tf.Module):
         self.predefinitions = predefinitions  # Predefined tag mappings for tokens.
 
     # Encoding function that processes a sequence and optionally uses a Memory instance.
-    def encode(self, sequence, memory=None):
+    def __call__(self, batch, memory=None):
         # Pre-tag tokens in the sequence based on predefinitions.
-        print(sequence)
-        tagged_data = []
-        for token in sequence:
-            tagged = False
-            for k in self.predefinitions.keys():
-                if token in self.predefinitions[k]:
-                    tagged_data.append((token, k))  # Assign the predefined tag.
-                    tagged = True
-            if not tagged:
-                tagged_data.append((token, None))  # Assign no tag if no predefinition matches.
-
-        tag_dict = dict(tagged_data)  # Create a dictionary of tokens and their tags.
-        i = 0
-        for k in tag_dict.keys():
-            tag_seq = list(tag_dict.values())
-            if not tag_dict[k]:  # If the token has no tag.
-                if i == 0:
-                    idx = self.TransitionStates[""]  # Default state if no prior tokens.
-                else:
-                    # Lookup the current state based on prior sequence.
-                    idx = self.TransitionStates[" -> ".join([tkn for tkn in tag_seq[:i]])]
-                # Lookup the embedding vector from the transition matrix.
-                vec = tf.nn.embedding_lookup(self.TransitionMatrix, idx)
-                tag_tensor = tf.Variable([list(map(float, self.tags.values()))])
-                dot = tf.tensordot(tag_tensor, vec, axes=1)[0]  # Compute dot product.
-                tag_dict[k] = [k for k in self.tags.keys() if self.tags[k] == dot][0]  # Assign tag.
-            i += 1
-
-        encoded_arr = []
-        for k, v in tag_dict.items():
-            if v == '~pad~':  # Skip padding tokens.
-                continue
-            elif v == '~relation~':  # Handle relation tokens.
-                encoded_arr.append(k)
-            else:
-                if memory:
-                    memory.push(v, k=k)  # Push variable to memory if applicable.
-                # Further classify value tokens.
-                if v == '~value~':
-                    if k.isdigit():
-                        v = '~value.int~'
-                    elif k.isdecimal():
-                        v = '~value.float~'
-                    elif k.lower() in ("null", "none"):
-                        v = '~value.null~'
-                    else:
-                        v = '~value.string~'
-                encoded_arr.append(v)  # Add token to encoded array.
-        return " ".join(encoded_arr)  # Return the encoded sequence as a string.
-
-    def __call__(self, batch, memory = None):
-        encoded_batch = []
+        encoded_batch = None
         for sequence in batch:
-            encoded_batch.append(self.encode([b.decode("utf-8") for b in sequence.numpy()], memory=memory))
-        return tf.Variable(encoded_batch)
+            tagged_data = []
+            for tkn in sequence.numpy():
+                token = tkn.decode('utf-8')
+                tagged = False
+                for k in self.predefinitions.keys():
+                    if token in self.predefinitions[k]:
+                        tagged_data.append((token, k))  # Assign the predefined tag.
+                        tagged = True
+                if not tagged:
+                    tagged_data.append((token, None))  # Assign no tag if no predefinition matches.
+            tag_dict = dict(tagged_data)  # Create a dictionary of tokens and their tags.
+            i = 0
+            for k in tag_dict.keys():
+                tag_seq = list(tag_dict.values())
+                if not tag_dict[k]:  # If the token has no tag.
+                    if i == 0:
+                        idx = self.TransitionStates[""]  # Default state if no prior tokens.
+                    else:
+                        # Lookup the current state based on prior sequence.
+                        idx = self.TransitionStates[" -> ".join([tkn for tkn in tag_seq[:i]])]
+                    # Lookup the embedding vector from the transition matrix.
+                    vec = tf.nn.embedding_lookup(self.TransitionMatrix, idx)
+                    tag_tensor = tf.Variable([list(map(float, self.tags.values()))])
+                    dot = tf.tensordot(tag_tensor, vec, axes=1)[0]  # Compute dot product.
+                    tag_dict[k] = [k for k in self.tags.keys() if self.tags[k] == dot][0]  # Assign tag.
+                i += 1
+            encoded_arr = []
+            for k, v in tag_dict.items():
+                if v == '~pad~':  # Add padding tokens
+                    encoded_arr.append(v)
+                    # continue
+                elif v == '~relation~':  # Handle relation tokens.
+                    encoded_arr.append(k)
+                else:
+                    if memory:
+                        memory.push(v, k=k)  # Push variable to memory if applicable.
+                    # Further classify value tokens.
+                    if v == '~value~':
+                        if k.isdigit():
+                            v = '~value.int~'
+                        elif k.isdecimal():
+                            v = '~value.float~'
+                        elif k.lower() in ("null", "none"):
+                            v = '~value.null~'
+                        else:
+                            v = '~value.string~'
+                    encoded_arr.append(v)  # Add token to encoded array.
+            encoded_vec = tf.Variable([encoded_arr])
+            if encoded_batch is None:
+                print(encoded_batch)
+                encoded_batch = encoded_vec
+            else:
+                tf.stack([encoded_batch, encoded_vec])
+        return encoded_batch  # Return the encoded sequence as a string.
 
     # Add a new transition to the transition matrix.
     def addTransition(self, tag_seq, target):
