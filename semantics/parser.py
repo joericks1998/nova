@@ -88,6 +88,7 @@ class Encoder(tf.Module):
                     if memory:
                         memory.push(v, k=k)  # Push variable to memory if applicable.
                     # Further classify value tokens.
+                    #
                     if v == '~value~':
                         if k.isdigit():
                             v = '~value.int~'
