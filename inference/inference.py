@@ -2,36 +2,42 @@ import tensorflow as tf
 from training import training
 from text import data_io
 from static import _math
+from semantics import parser
 import numpy as np
 
-class Queue:
-    def __init__(self):
-        self.map = {}
-    @property
-    def Pair(self):
-        return self.map.items()
-    @Pair.setter
-    def Pair(self, variable, value):
-        self.map = {**self.map, **{variable: value}}
-        return
+model_path = "/Users/joericks/Desktop/nova/model"
 
-def vocabMapper(logit, vocab = data_io.getVocab()):
+def vocabMapper(logit, vocab = data_io.getVocab(path = model_path)):
     return vocab[logit]
 
-def inBatch(text_batch, tokenizer):
-    tokenBatch = list(map(tokenizer.word_split, text_batch))
-    max_seq_len = max(list(map(len, tokenBatch)))
-    padBatch = []
-    for seq in tokenBatch:
-        if len(seq) < max_seq_len:
-            pads = ["<pad>" for i in range(0, max_seq_len - len(seq))]
-            padBatch.append(seq+pads)
-        else:
-            padBatch.append(seq)
-    return padBatch
+def bytify(text_batch):
+    for i in range(0, len(text_batch)):
+        if isinstance(text_batch[i], str):
+            text_batch[i] = text_batch[i].encode("utf-8")
+        elif isinstance(text_batch[i], list):
+            bytify(text_batch[i])
+    return text_batch
 
-# def inPadding(in_batch):
-#     return in_batch
+def debytify(byte_batch):
+    for i in range(0, len(byte_batch)):
+        if isinstance(byte_batch[i], bytes):
+            byte_batch[i] = byte_batch[i].decode("utf-8")
+        elif isinstance(byte_batch[i], (list, np.ndarray)):
+            debytify(byte_batch[i])
+    return byte_batch
+
+def inBatch(text_batch, tokenizer):
+    token_batch = list(map(tokenizer.word_split, text_batch))
+    max_seq_len = max(list(map(len, token_batch)))
+    byte_batch = bytify(token_batch)
+    pad_batch = []
+    for seq in byte_batch:
+        if len(seq) < max_seq_len:
+            pads = [b"<pad>" for i in range(0, max_seq_len - len(seq))]
+            pad_batch.append(seq+pads)
+        else:
+            pad_batch.append(seq)
+    return tf.Variable(pad_batch)
 
 def InferAll(ps):
     idx = ps.shape[1]-1
@@ -46,8 +52,11 @@ def InferEfficient(ps):
 
 def Generator(text_batch, model = None, tokenizer = None, max_t = 25):
     print(f"Performing first pass..")
-    in_batch = tf.Variable(inBatch(text_batch, tokenizer))
+    encoder = parser.Encoder.load("model/semantics")
+    in_batch = inBatch(text_batch, tokenizer)
     in_len = in_batch.shape[1]
+    in_batch = encoder(in_batch)
+    print(in_batch)
     j = 0
     out_batch = None
     print(f"Generating...")
@@ -63,7 +72,11 @@ def Generator(text_batch, model = None, tokenizer = None, max_t = 25):
             in_batch = tf.concat([in_batch, out_batch], axis = 1)
             return in_batch
     in_batch = tf.concat([in_batch, out_batch], axis = 1)
-    responses = ["".join(list(map(str, s.numpy()))) for s in in_batch[:,in_len:]]
+    byted = in_batch[:,in_len:].numpy()
+    debyted = debytify(byted)
+    responses = []
+    for seq in debyted.tolist():
+        responses.append(" ".join(seq))
     return responses
 
 

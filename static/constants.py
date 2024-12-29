@@ -6,7 +6,8 @@ nova_tfmr = 8
 dff = 4*d_model
 num_heads = 32
 # vocab specs
-vocab_len = len(data_io.getVocab())
+model_path = "/Users/joericks/Desktop/nova/model"
+vocab_len = len(data_io.getVocab(path = model_path))
 
 # temperature and dropout (will autoupdate model)
 dropout_rate = 0.5
