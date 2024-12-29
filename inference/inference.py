@@ -10,17 +10,34 @@ model_path = "/Users/joericks/Desktop/nova/model"
 def vocabMapper(logit, vocab = data_io.getVocab(path = model_path)):
     return vocab[logit]
 
+def bytify(text_batch):
+    for i in range(0, len(text_batch)):
+        if isinstance(text_batch[i], str):
+            text_batch[i] = text_batch[i].encode("utf-8")
+        elif isinstance(text_batch[i], list):
+            bytify(text_batch[i])
+    return text_batch
+
+def debytify(byte_batch):
+    for i in range(0, len(byte_batch)):
+        if isinstance(byte_batch[i], bytes):
+            byte_batch[i] = byte_batch[i].decode("utf-8")
+        elif isinstance(byte_batch[i], (list, np.ndarray)):
+            debytify(byte_batch[i])
+    return byte_batch
+
 def inBatch(text_batch, tokenizer):
-    tokenBatch = list(map(tokenizer.word_split, text_batch))
-    max_seq_len = max(list(map(len, tokenBatch)))
-    padBatch = []
-    for seq in tokenBatch:
+    token_batch = list(map(tokenizer.word_split, text_batch))
+    max_seq_len = max(list(map(len, token_batch)))
+    byte_batch = bytify(token_batch)
+    pad_batch = []
+    for seq in byte_batch:
         if len(seq) < max_seq_len:
-            pads = ["<pad>" for i in range(0, max_seq_len - len(seq))]
-            padBatch.append(seq+pads)
+            pads = [b"<pad>" for i in range(0, max_seq_len - len(seq))]
+            pad_batch.append(seq+pads)
         else:
-            padBatch.append(seq)
-    return tf.Variable(padBatch)
+            pad_batch.append(seq)
+    return tf.Variable(pad_batch)
 
 def InferAll(ps):
     idx = ps.shape[1]-1
@@ -55,7 +72,11 @@ def Generator(text_batch, model = None, tokenizer = None, max_t = 25):
             in_batch = tf.concat([in_batch, out_batch], axis = 1)
             return in_batch
     in_batch = tf.concat([in_batch, out_batch], axis = 1)
-    responses = ["".join(list(map(str, s.numpy()))) for s in in_batch[:,in_len:]]
+    byted = in_batch[:,in_len:].numpy()
+    debyted = debytify(byted)
+    responses = []
+    for seq in debyted.tolist():
+        responses.append(" ".join(seq))
     return responses
 
 

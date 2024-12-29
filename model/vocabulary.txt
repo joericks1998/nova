@@ -8,6 +8,7 @@ break
 case
 char
 
+\n
 const
 continue
 default
