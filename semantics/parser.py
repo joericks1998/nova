@@ -101,10 +101,11 @@ class Encoder(tf.Module):
                     encoded_arr.append(v)  # Add token to encoded array.
             encoded_vec = tf.Variable([encoded_arr])
             if encoded_batch is None:
-                print(encoded_batch)
+                print("entered")
                 encoded_batch = encoded_vec
             else:
-                tf.stack([encoded_batch, encoded_vec])
+                print("entered")
+                encoded_batch = tf.concat([encoded_batch, encoded_vec], axis = 0)
         return encoded_batch  # Return the encoded sequence as a string.
 
     # Add a new transition to the transition matrix.
