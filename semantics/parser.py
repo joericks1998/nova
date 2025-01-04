@@ -47,7 +47,7 @@ class Encoder(tf.Module):
         self.predefinitions = predefinitions  # Predefined tag mappings for tokens.
 
     # Encoding function that processes a sequence and optionally uses a Memory instance.
-    def __call__(self, batch, memory=None):
+    def __call__(self, batch, memory=None, training=False):
         # Pre-tag tokens in the sequence based on predefinitions.
         encoded_batch = None
         for sequence in batch:
@@ -101,13 +101,25 @@ class Encoder(tf.Module):
                     encoded_arr.append(v)  # Add token to encoded array.
             encoded_vec = tf.Variable([encoded_arr])
             if encoded_batch is None:
-                print("entered")
                 encoded_batch = encoded_vec
             else:
-                print("entered")
                 encoded_batch = tf.concat([encoded_batch, encoded_vec], axis = 0)
         return encoded_batch  # Return the encoded sequence as a string.
-
+    # reenforcement method
+    @staticmethod
+    def reenforce(probabilities, mode, num_epochs = 1, is_bad = False, num_bad = 0):
+        for epoch in range(num_epochs):
+            if is_bad:
+                # num_bad.assign_add(1)  # Increment the number of bad updates
+                # Update probabilities by averaging the wrong answer's probability with 0
+                probabilities = tf.tensor_scatter_nd_update(probabilities, [[mode]], [tf.reduce_mean([probabilities[mode], 0])])
+                probabilities /= tf.reduce_sum(probabilities)  # Normalize after update
+            else:
+                # Reduce the wrong answers' probabilities to 0 (like penalizing)
+                one_hot_tensor = tf.one_hot(mode, probabilities.shape[0])  # Create a tensor of zeros with the same shape as wrong_probs
+                probabilities = tf.reduce_mean([probabilities, one_hot_tensor], axis=0)
+   # Normalize after update
+    return probabilities
     # Add a new transition to the transition matrix.
     def addTransition(self, tag_seq, target):
         if isinstance(target, str):
@@ -170,6 +182,6 @@ class Encoder(tf.Module):
             transition_states = json.load(f)
         with open(os.path.join(path, "constants.json"), "r") as f:
             n_limit = json.load(f)["n_limit"]
-        transition_matrix = np.load(os.path.join(path, "transition_matrix.npy"))
+        transition_matrix = tf.Variable(np.load(os.path.join(path, "transition_matrix.npy")))
         return cls(tags=tags, n_limit=n_limit, predefinitions=predef_tags,
                    transition_states=transition_states, transition_matrix=transition_matrix)

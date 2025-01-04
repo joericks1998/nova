@@ -1,10 +1,11 @@
 import tensorflow as tf
 from . import training, constants, _math
 from semantics import parser, tokenizer
+from utils import model_io
 import numpy as np
 import os
 
-model_path = "nova/model"
+model_path = "/Users/joericks/Desktop/nova/model"
 
 with open(os.path.join(model_path, 'vocabulary.txt'), 'r') as f:
     vocab = f.read().split('\n')
@@ -52,14 +53,14 @@ def InferAll(ps):
 def InferEfficient(ps):
     return tf.argmax(ps, axis=2)[:,-2]
 
-def Generator(text_batch, max_t = 250):
+def Generator(text_batch, model = None, max_t = 250):
     print(f"Performing first pass..")
-    model = model_io.load("model")
-    print(model)
+    model = model_io.load(save_dir = "model")
     encoder = parser.Encoder.load("model/semantics")
     in_batch = inBatch(text_batch)
     in_len = in_batch.shape[1]
     in_batch = encoder(in_batch)
+    print(in_batch)
     j = 0
     out_batch = None
     print(f"Generating...")
