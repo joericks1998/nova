@@ -3,6 +3,7 @@ import tensorflow as tf
 import numpy as np
 import os
 import json
+import Levenshtein
 
 # Memory class manages a dictionary-like structure for storing and retrieving data sequences.
 class Memory:
@@ -33,7 +34,7 @@ class Encoder(tf.Module):
 
         # Initialize transition matrix; defaults to a zero matrix if not provided.
         if transition_matrix is None:
-            self.TransitionMatrix = tf.zeros(shape=(1, len(tags.values())))
+            self.TransitionMatrix = None
         else:
             self.TransitionMatrix = transition_matrix
 
@@ -45,9 +46,22 @@ class Encoder(tf.Module):
 
         self.tags = tags  # Dictionary of tag mappings.
         self.predefinitions = predefinitions  # Predefined tag mappings for tokens.
-
+    @staticmethod
+    def reenforce(probabilities, mode, num_epochs = 1, is_bad = False, num_bad = 0):
+        for epoch in range(num_epochs):
+            if is_bad:
+                # num_bad.assign_add(1)  # Increment the number of bad updates
+                # Update probabilities by averaging the wrong answer's probability with 0
+                probabilities = tf.tensor_scatter_nd_update(probabilities, [[mode]], [tf.reduce_mean([probabilities[mode], 0])])
+                probabilities /= tf.reduce_sum(probabilities)  # Normalize after update
+            else:
+                # Reduce the wrong answers' probabilities to 0 (like penalizing)
+                one_hot_tensor = tf.one_hot(mode, probabilities.shape[0])  # Create a tensor of zeros with the same shape as wrong_probs
+                probabilities = tf.reduce_mean([probabilities, one_hot_tensor], axis=0)
+       # Normalize after update
+        return probabilities
     # Encoding function that processes a sequence and optionally uses a Memory instance.
-    def __call__(self, batch, memory=None, training=False):
+    def __call__(self, batch, memory=None, training=(False, False)):
         # Pre-tag tokens in the sequence based on predefinitions.
         encoded_batch = None
         for sequence in batch:
@@ -73,7 +87,9 @@ class Encoder(tf.Module):
                         idx = self.TransitionStates[" -> ".join([tkn for tkn in tag_seq[:i]])]
                     # Lookup the embedding vector from the transition matrix.
                     vec = tf.nn.embedding_lookup(self.TransitionMatrix, idx)
+                    print(vec)
                     tag_tensor = tf.Variable([list(map(float, self.tags.values()))])
+                    print(tag_tensor)
                     dot = tf.tensordot(tag_tensor, vec, axes=1)[0]  # Compute dot product.
                     tag_dict[k] = [k for k in self.tags.keys() if self.tags[k] == dot][0]  # Assign tag.
                 i += 1
@@ -105,33 +121,30 @@ class Encoder(tf.Module):
             else:
                 encoded_batch = tf.concat([encoded_batch, encoded_vec], axis = 0)
         return encoded_batch  # Return the encoded sequence as a string.
-    # reenforcement method
-    @staticmethod
-    def reenforce(probabilities, mode, num_epochs = 1, is_bad = False, num_bad = 0):
-        for epoch in range(num_epochs):
-            if is_bad:
-                # num_bad.assign_add(1)  # Increment the number of bad updates
-                # Update probabilities by averaging the wrong answer's probability with 0
-                probabilities = tf.tensor_scatter_nd_update(probabilities, [[mode]], [tf.reduce_mean([probabilities[mode], 0])])
-                probabilities /= tf.reduce_sum(probabilities)  # Normalize after update
-            else:
-                # Reduce the wrong answers' probabilities to 0 (like penalizing)
-                one_hot_tensor = tf.one_hot(mode, probabilities.shape[0])  # Create a tensor of zeros with the same shape as wrong_probs
-                probabilities = tf.reduce_mean([probabilities, one_hot_tensor], axis=0)
-   # Normalize after update
-    return probabilities
     # Add a new transition to the transition matrix.
-    def addTransition(self, tag_seq, target):
-        if isinstance(target, str):
-            target = [target]
-        for tkn in target:
-            if not tkn in self.tags.keys():
-                raise ValueError("Invalid Target Tag")
-
-        self.TransitionStates[tag_seq] = self.TransitionMatrix.shape[0]  # Record the transition state.
-        depth = len(self.tags.keys())
-        transition = tf.one_hot([self.tags[t] for t in target], depth)  # One-hot encode target.
-        self.TransitionMatrix = tf.concat([self.TransitionMatrix, transition], axis=0)  # Update matrix.
+    def addTransition(self, tag_seq):
+        if tag_seq in self.TransitionStates.keys():
+            return
+        if not self.TransitionStates:
+            self.TransitionStates = {tag_seq: 0}
+            self.TransitionMatrix = tf.Variable([[1/len(self.tags) for i in self.tags]],
+                        dtype = tf.float64)
+        else:
+            depth = len(self.tags.keys())
+            scores = tf.constant([1-Levenshtein.distance(tag_seq.replace(' -> ', ''),
+                    k.replace(' -> ', ''))/max(len(k), len(tag_seq)) for k, v in self.TransitionStates.items()],
+                    dtype = tf.float64)
+            p_matrix = self.TransitionMatrix * scores[:, tf.newaxis]
+            # print(scores)
+            if p_matrix.shape[0]>1:
+                logits = tf.constant([[sum(p_matrix[:,i].numpy()) for i in range(0, p_matrix.shape[1])]],
+                        dtype = tf.float64)
+            else:
+                logits = p_matrix
+            transition = tf.nn.softmax(logits, axis=-1)
+            print(logits)
+            self.TransitionMatrix = tf.concat([self.TransitionMatrix, transition], axis=0)  # Update matrix.
+            self.TransitionStates[tag_seq] = self.TransitionMatrix.shape[0]-1  # Record the transition state.
         return
 
     # Delete a row from the transition matrix.
