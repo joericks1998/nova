@@ -1,5 +1,5 @@
 import tensorflow as tf
-
+#nova
 def posEncoding(seq_len, embedding_dim):
     pass
 
