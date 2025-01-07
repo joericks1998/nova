@@ -34,13 +34,13 @@ class Encoder(tf.Module):
 
         # Initialize transition matrix; defaults to a zero matrix if not provided.
         if transition_matrix is None:
-            self.TransitionMatrix = tf.Variable([0 for i in tags] + [1])
+            self.TransitionMatrix = None
         else:
             self.TransitionMatrix = transition_matrix
 
         # Initialize transition states; defaults to an empty dictionary if not provided.
         if not transition_states:
-            self.TransitionStates = {'': 0}
+            self.TransitionStates = {}
         else:
             self.TransitionStates = transition_states
 
@@ -87,23 +87,23 @@ class Encoder(tf.Module):
             for k in tag_dict.keys():
                 tag_seq = list(tag_dict.values())
                 if not tag_dict[k]:  # If the token has no tag.
-                    if i == 0:
-                        idx = self.TransitionStates[""]  # Default state if no prior tokens.
-                    else:
-                        # Lookup the current state based on prior sequence.
-                        idx = self.TransitionStates[" -> ".join([tkn for tkn in tag_seq[:i]])]
-                        # Lookup the embedding vector from the transition matrix.
-                        vec = tf.nn.embedding_lookup(self.TransitionMatrix, idx)
-                        if training:
-                            if not sentiment:
-                                msg = "When training you must provide bool type sentiment as ground truth."
-                                raise ValueError(msg)
-                            else:
-                                continue
+                    # if i == 0:
+                    #     idx = self.TransitionStates[""]  # Default state if no prior tokens.
+                    # else:
+                    #     # Lookup the current state based on prior sequence.
+                    idx = self.TransitionStates[" -> ".join([tkn for tkn in tag_seq[:i]])]
+                    # Lookup the embedding vector from the transition matrix.
+                    vec = tf.nn.embedding_lookup(self.TransitionMatrix, idx)
+                    if training:
+                        if not sentiment:
+                            msg = "When training you must provide bool type sentiment as ground truth."
+                            raise ValueError(msg)
                         else:
-                            samples = tf.random.categorical(tf.math.log([vec]), num_samples=50)
-                            response = self.tf_mode(samples)
-                        tag_dict[k] = [k for k in self.tags.keys() if self.tags[k] == response][0]  # Assign tag.
+                            continue
+                    else:
+                        samples = tf.random.categorical(tf.math.log([vec]), num_samples=50)
+                        response = self.tf_mode(samples)
+                    tag_dict[k] = [k for k in self.tags.keys() if self.tags[k] == response][0]  # Assign tag.
                 i += 1
             encoded_arr = []
             for k, v in tag_dict.items():
@@ -139,6 +139,10 @@ class Encoder(tf.Module):
         for tag_seq in tag_seqs:
             if tag_seq in self.TransitionStates.keys():
                 continue
+            if not self.TransitionStates:
+                self.TransitionStates = {tag_seq: 0}
+                self.TransitionMatrix = tf.Variable([[1/len(self.tags) for i in self.tags]],
+                            dtype = tf.float64)
             else:
                 depth = len(self.tags.keys())
                 scores = tf.constant([1-Levenshtein.distance(tag_seq.replace(' -> ', ''),
