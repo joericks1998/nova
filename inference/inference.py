@@ -2,14 +2,14 @@ import tensorflow as tf
 from training import training
 from text import data_io
 from static import _math
-from semantics import parser
+from semantics import parser, tokenizer
 import numpy as np
 
-model_path = "/Users/joericks/Desktop/nova/model"
+model_path = "/Users/pc/Documents/nova_new/nova/model"
 
 def vocabMapper(logit, vocab = data_io.getVocab(path = model_path)):
     return vocab[logit]
-
+#convert string to byte
 def bytify(text_batch):
     for i in range(0, len(text_batch)):
         if isinstance(text_batch[i], str):
@@ -17,7 +17,7 @@ def bytify(text_batch):
         elif isinstance(text_batch[i], list):
             bytify(text_batch[i])
     return text_batch
-
+#convert byte string to pystring
 def debytify(byte_batch):
     for i in range(0, len(byte_batch)):
         if isinstance(byte_batch[i], bytes):
@@ -27,7 +27,7 @@ def debytify(byte_batch):
     return byte_batch
 
 def inBatch(text_batch, tokenizer):
-    token_batch = list(map(tokenizer.word_split, text_batch))
+    token_batch = list(map(tokenizer.tokenize, text_batch))
     max_seq_len = max(list(map(len, token_batch)))
     byte_batch = bytify(token_batch)
     pad_batch = []

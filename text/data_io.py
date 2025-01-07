@@ -1,7 +1,7 @@
 import os
 import json
-
+## output vocab
 def getVocab(path = None):
     with open(os.path.join(path, "vocabulary.txt"), "r") as file:
-        vocab = file.read().split('\n')
+        vocab = file.readlines()
     return vocab
