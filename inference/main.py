@@ -1,15 +1,18 @@
 import tensorflow as tf
-from training import training
-from text import data_io
-from static import _math
+from . import training, constants, _math
 from semantics import parser, tokenizer
+from utils import model_io
 import numpy as np
+import os
 
-model_path = "/Users/pc/Documents/nova_new/nova/model"
+model_path = "/Users/joericks/Desktop/nova/model"
 
-def vocabMapper(logit, vocab = data_io.getVocab(path = model_path)):
+with open(os.path.join(model_path, 'vocabulary.txt'), 'r') as f:
+    vocab = f.read().split('\n')
+
+def vocabMapper(logit, vocab = vocab):
     return vocab[logit]
-#convert string to byte
+
 def bytify(text_batch):
     for i in range(0, len(text_batch)):
         if isinstance(text_batch[i], str):
@@ -17,7 +20,7 @@ def bytify(text_batch):
         elif isinstance(text_batch[i], list):
             bytify(text_batch[i])
     return text_batch
-#convert byte string to pystring
+
 def debytify(byte_batch):
     for i in range(0, len(byte_batch)):
         if isinstance(byte_batch[i], bytes):
@@ -26,8 +29,8 @@ def debytify(byte_batch):
             debytify(byte_batch[i])
     return byte_batch
 
-def inBatch(text_batch, tokenizer):
-    token_batch = list(map(tokenizer.tokenize, text_batch))
+def inBatch(text_batch):
+    token_batch = list(map(tokenizer.word_split, text_batch))
     max_seq_len = max(list(map(len, token_batch)))
     byte_batch = bytify(token_batch)
     pad_batch = []
@@ -50,10 +53,11 @@ def InferAll(ps):
 def InferEfficient(ps):
     return tf.argmax(ps, axis=2)[:,-2]
 
-def Generator(text_batch, model = None, tokenizer = None, max_t = 25):
+def Generator(text_batch, model = None, max_t = 250):
     print(f"Performing first pass..")
+    model = model_io.load(save_dir = "model")
     encoder = parser.Encoder.load("model/semantics")
-    in_batch = inBatch(text_batch, tokenizer)
+    in_batch = inBatch(text_batch)
     in_len = in_batch.shape[1]
     in_batch = encoder(in_batch)
     print(in_batch)

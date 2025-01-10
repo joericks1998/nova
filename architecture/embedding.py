@@ -1,32 +1,32 @@
 import tensorflow as tf
+<<<<<<< HEAD
+=======
 #nova
 def posEncoding(seq_len, embedding_dim):
     pass
+>>>>>>> tristan-dev
 
 class Layer(tf.Module):
+    # Initialize the EmbeddingLayer with the given embedding dimension and optional name
     def __init__(self, d_model, name=None):
-        # Initialize the EmbeddingLayer with the given embedding dimension and optional name
         super(Layer, self).__init__(name=name)
         self.d_model = d_model # Store the dimension of the embeddings for serialization
         self.embeddings = tf.zeros(shape = (1, self.d_model))  # Initialize embeddings to None
-        self.h = {"<pad>": 0}  # Dictionary to map words to their indices
+        self.tokens = {"<pad>": 0}  # Dictionary to map words to their indices
 
+    # Method to retrieve or create the embedding for a given word
     def __call__(self, word):
-        # Method to retrieve or create the embedding for a given word
-        # if not isinstance(word, str):
-        #     return "embedding model is for strings only"  # Ensure the input is a string
         # Define initializer
         initializer = tf.keras.initializers.GlorotUniform()
-        if word.numpy() not in self.h.keys():
+        if word.numpy() not in self.tokens.keys():
             # If the word is new and not yet in the dictionary
-            self.h[word.numpy()] = self.embeddings.shape[0]  # Assign the next index to the new word
+            self.tokens[word.numpy()] = self.embeddings.shape[0]  # Assign the next index to the new word
             # Create a new embedding and concatenate it to the existing embeddings
             new_embedding = tf.Variable(initializer(shape = (1, self.d_model)))
             new_embeddings = tf.concat([self.embeddings, new_embedding], axis=0)
             self.embeddings = tf.Variable(new_embeddings)  # Update embeddings with the new concatenated tensor
-
         # Retrieve the embedding for the given word using its index
-        return tf.nn.embedding_lookup(self.embeddings, self.h[word.numpy()])
+        return tf.nn.embedding_lookup(self.embeddings, self.tokens[word.numpy()])
 
     def __add__(self, other_layer):
         # Method to add two EmbeddingLayer instances
@@ -42,11 +42,11 @@ class Layer(tf.Module):
             msg = "Embeddings in layer are missing"
             raise ValueError(msg)  # Raise an error if embeddings are missing
 
-        other_h = other_layer.h  # Get the word-to-index mapping from the other layer
+        other_h = other_layer.tokens  # Get the word-to-index mapping from the other layer
         # Update the indices in other_layer's dictionary to match the new combined layer
         updated_o_h = {k: v + self.embeddings.shape[0] for k, v in zip(other_h.keys(), other_h.values())}
         # Merge the word-to-index dictionaries from both layers
-        addition_layer.h = {**self.h, **updated_o_h}
+        addition_layer.tokens = {**self.tokens, **updated_o_h}
 
         # Concatenate embeddings from both layers along the first axis
         new_layer = tf.concat([self.embeddings, other_layer.embeddings], axis=0)
