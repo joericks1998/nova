@@ -1,1 +1,12 @@
-{"~relation~": 0, "~pad~": 1, "~var~": 2, "~value~": 3, "~func~": 4, "~break~": 5, "~container~": 6, "~def~": 7, "~brelation~": 8, "~connector~": 9}
+{"~relation~": 0,
+  "~pad~": 1,
+  "~var~": 2,
+  "~value~": 3,
+  "~func~": 4,
+  "~break~": 5,
+  "~container~": 6,
+  "~definition~": 7,
+  "~brelation~": 8,
+  "~connector~": 9,
+  "BAD SEQUENCE ERROR": 10
+}
