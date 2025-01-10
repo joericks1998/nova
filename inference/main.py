@@ -5,7 +5,7 @@ from utils import model_io
 import numpy as np
 import os
 
-model_path = "/Users/joericks/Desktop/nova/model"
+model_path = "model"
 
 with open(os.path.join(model_path, 'vocabulary.txt'), 'r') as f:
     vocab = f.read().split('\n')

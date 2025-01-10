@@ -1,10 +1,4 @@
 import tensorflow as tf
-<<<<<<< HEAD
-=======
-#nova
-def posEncoding(seq_len, embedding_dim):
-    pass
->>>>>>> tristan-dev
 
 class Layer(tf.Module):
     # Initialize the EmbeddingLayer with the given embedding dimension and optional name
