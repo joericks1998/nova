@@ -7,8 +7,6 @@ setup(
     install_requires = [
         "numpy",
         "tensorflow",
-        "re",
-        "json",
         "Levenshtein"
     ]
 )

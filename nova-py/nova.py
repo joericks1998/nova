@@ -4,7 +4,7 @@ from architecture import embedding, transformer, final
 # from static import constants, _math
 # from utils import model_io
 
-class Model(tf.keras.Model):
+class Nova(tf.keras.Model):
     def __init__(self, d_model = constants.d_model, num_heads=constants.num_heads,
                 dff = constants.dff, vocab_len = constants.vocab_len,
                 num_tfmrs = constants.nova_tfmr, encoder):
