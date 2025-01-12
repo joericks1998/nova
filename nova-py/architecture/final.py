@@ -1,21 +1,22 @@
 import tensorflow as tf
-from static import constants
 
 # Define a custom layer class, inheriting from `tf.keras.layers.Layer`.
 class Layer(tf.keras.layers.Layer):
-    def __init__(self, vocab_size, d_model):
+    def __init__(self, vocab_size, d_model, temperature):
         # Initialize the parent `tf.keras.layers.Layer` class.
         super(Layer, self).__init__()
         # Define a dense layer to project inputs to `vocab_size` dimensions.
         # This is typically used as the output layer of a generative model.
         self.projection = tf.keras.layers.Dense(vocab_size)
+        # Define the model temperature
+        self.temperature = temperature
 
     # Define the forward pass logic for the layer.
     def __call__(self, inputs):
         # Apply the dense layer to project inputs to `vocab_size` dimensions.
         logits = self.projection(inputs)
         # Apply temperature scaling for randomness
-        scaled_logits = logits / constants.temperature
+        scaled_logits = logits / self.temperature
         # Use softmax to convert logits into probabilities across the vocabulary.
         probabilities = tf.nn.softmax(logits, axis=-1)
         return probabilities  # Return the probabilities as the output.
