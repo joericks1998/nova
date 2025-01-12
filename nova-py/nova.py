@@ -1,13 +1,13 @@
 import numpy as np
 import tensorflow as tf
-from . import embedding, transformer, final
-from static import constants, _math
-from utils import model_io
+from architecture import embedding, transformer, final
+# from static import constants, _math
+# from utils import model_io
 
 class Model(tf.keras.Model):
     def __init__(self, d_model = constants.d_model, num_heads=constants.num_heads,
                 dff = constants.dff, vocab_len = constants.vocab_len,
-                num_tfmrs = constants.nova_tfmr):
+                num_tfmrs = constants.nova_tfmr, encoder):
         super(Model, self).__init__()
         self.embed = embedding.Layer(d_model, name = "nova_embedding_layer")
         #initialize padding vector
@@ -47,6 +47,10 @@ class Model(tf.keras.Model):
         probabilities = self.final(tfmr_logits)
 
         return probabilities
+
+    #generate model outputs
+    def generate(self, in_batch, training = False):
+
 
     #get config for serialization
     def get_config(self):
