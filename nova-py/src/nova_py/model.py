@@ -1,14 +1,11 @@
 import numpy as np
 import tensorflow as tf
-from architecture import embedding, transformer, final
-# from static import constants, _math
-# from utils import model_io
+from .architecture import embedding, transformer, final
 
 class Nova(tf.keras.Model):
-    def __init__(self, d_model = constants.d_model, num_heads=constants.num_heads,
-                dff = constants.dff, vocab_len = constants.vocab_len,
-                num_tfmrs = constants.nova_tfmr, encoder):
-        super(Model, self).__init__()
+    def __init__(self, d_model = None, num_heads=None, dff = None,
+        vocab_len = None, num_tfmrs = None):
+        super(Nova, self).__init__()
         self.embed = embedding.Layer(d_model, name = "nova_embedding_layer")
         #initialize padding vector
         tfmrs = {}
@@ -50,8 +47,7 @@ class Nova(tf.keras.Model):
 
     #generate model outputs
     def generate(self, in_batch, training = False):
-
-
+        pass
     #get config for serialization
     def get_config(self):
         return model_io.master_config(Model.__init__)

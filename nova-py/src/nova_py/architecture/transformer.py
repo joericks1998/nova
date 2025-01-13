@@ -1,10 +1,8 @@
 import tensorflow as tf
 from . import attention, ffnn
-from static import constants
-from utils.model_io import master_config
 
 class Layer(tf.Module):
-    def __init__(self, d_model, num_heads, dff, dropout_rate = constants.dropout_rate, name = None):
+    def __init__(self, d_model, num_heads, dff, dropout_rate, name = None):
         super(Layer, self).__init__(name = name)
         self.attention = attention.Layer(d_model, num_heads)
         self.ffnn = ffnn.Layer(d_model, dff)
