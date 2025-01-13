@@ -1,22 +1,27 @@
 import numpy as np
 import tensorflow as tf
 from .architecture import embedding, transformer, final
+from pathlib import Path
+import yaml
 
 class Nova(tf.keras.Model):
-    def __init__(self, d_model = None, num_heads=None, dff = None,
-        vocab_len = None, num_tfmrs = None):
+    def __init__(self, _hp_path = 'model/hyperparameters.yaml', _vocab_path = 'model/vocabulary.txt'):
         super(Nova, self).__init__()
-        self.embed = embedding.Layer(d_model, name = "nova_embedding_layer")
-        #initialize padding vector
-        tfmrs = {}
-        for i in range (1, num_tfmrs + 1):
-            tfmrs = {
-                **tfmrs,
-                **{i: transformer.Layer(d_model, num_heads , dff)}
-                }
-        self.tfmrs = tfmrs
-        self.final = final.Layer(vocab_len, d_model)
-        return
+        parent = Path(__file__).resolve().parent
+        self._hp_path = parent/_hp_path
+        self._vocab_path = parent/_vocab_path
+        with open(self._hp_path, 'r') as f:
+            self.hp = yaml.safe_load(f)
+        with open(self._vocab_path, 'r') as f:
+            self.vocabulary = f.readlines()
+        self.dims = self.hp['nova']['dimensions']
+        self.run_specs = self.hp['nova']['run_specs']
+        self.embedder = embedding.Layer(self.dims['d_model'], name = "nova_embedding_layer")
+        #initialize transformers
+        self.tfmrs = {i+1: transformer.Layer(self.dims['d_model'], self.dims['num_heads'],
+                                            self.dims['dff'], self.run_specs['dropout_rate']) for i in range(0,self.dims['num_transformers'])}
+        self.final = final.Layer(len(self.vocabulary), self.dims['d_model'], self.run_specs['temperature'])
+        # return
 
     def embedPass(self, in_batch):
         # embedding tokenized batch
