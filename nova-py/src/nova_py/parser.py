@@ -3,7 +3,9 @@ import tensorflow as tf
 import numpy as np
 import os
 import json
+import yaml
 import Levenshtein
+from pathlib import Path
 
 # Memory class manages a dictionary-like structure for storing and retrieving data sequences.
 class Memory:
@@ -24,28 +26,25 @@ class Memory:
 
 # Encoder class for encoding sequences based on predefined tagging and transition logic.
 class Encoder(tf.Module):
-    def __init__(self, tags=None, n_limit=None, predefinitions=None,
-                 transition_matrix=None, transition_states=None):
+    def __init__(self, n_limit=None):
+        # Load in tags
+        self.parent = Path(__file__).resolve().parent
+        with open(os.path.join(self.parent, "model/tags.json"), "r") as f:
+            self.tags = json.load(f) # Dictionary of tag mappings.
+        # Load predefinitions
+        with open(os.path.join(self.parent, "model/predefined_tags.json"), "r") as f:
+            self.predefinitions = json.load(f) # Predefined tag mappings for tokens.
+        # Initialize transition matrix; defaults to a zero matrix if not provided.
+        self.TransitionMatrix = tf.Variable([[1/len(self.tags) for i in range(len(self.tags))]], dtype = tf.float64)
+        # Initialize transition states; defaults to an empty dictionary if not provided.
+        self.TransitionStates = {'': 0}
         # Store constants for encoder pattern limits
         self.constants = {
             "n_limit": n_limit,
-            "max_combos": (len(tags) - 1) ** n_limit
+            "max_combos": (len(self.tags) - 1) ** n_limit
         }
 
-        # Initialize transition matrix; defaults to a zero matrix if not provided.
-        if transition_matrix is None:
-            self.TransitionMatrix = tf.Variable([[1/len(tags) for i in range(len(tags))]], dtype = tf.float64)
-        else:
-            self.TransitionMatrix = transition_matrix
-
-        # Initialize transition states; defaults to an empty dictionary if not provided.
-        if not transition_states:
-            self.TransitionStates = {'': 0}
-        else:
-            self.TransitionStates = transition_states
-
-        self.tags = tags  # Dictionary of tag mappings.
-        self.predefinitions = predefinitions  # Predefined tag mappings for tokens.
+    # static method for reenforcement learning
     @staticmethod
     def reenforce(probabilities, mode, num_epochs = 1, is_bad = False, num_bad = 0):
         for epoch in range(num_epochs):
@@ -194,8 +193,12 @@ class Encoder(tf.Module):
             json.dump(self.tags, f)
         with open(os.path.join(path, "transition_states.json"), "w") as f:
             json.dump(self.TransitionStates, f)
-        with open(os.path.join(path, "constants.json"), "w") as f:
-            json.dump(self.constants, f)
+        with open(os.path.join(path, "hyperparameters.yaml"), "r") as f:
+            existing_yaml = yaml.safe_load(f) or {}
+        existing_yaml["encoder"] = self.constants
+        print(dir(existing_yaml))
+        with open(os.path.join(path, "hyperparameters.yaml"), "w") as f:
+            yaml.dump(existing_yaml, f, default_flow_style=False, Dumper=yaml.SafeDumper)
         np.save(os.path.join(path, "transition_matrix.npy"), self.TransitionMatrix.numpy())
         return
 
