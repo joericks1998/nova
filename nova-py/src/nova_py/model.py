@@ -1,7 +1,7 @@
 import numpy as np
 import tensorflow as tf
 from .architecture import embedding, transformer, final
-from .semantics.parser import Encoder
+from .semantics import parser, tokenizer
 from pathlib import Path
 import yaml
 
@@ -28,7 +28,7 @@ class Nova(tf.keras.Model):
         self.tfmrs = {i+1: transformer.Layer(self.dims['d_model'], self.dims['num_heads'],
                                             self.dims['dff'], self.run_specs['dropout_rate']) for i in range(0,self.dims['num_transformers'])}
         self.final = final.Layer(len(self.vocabulary), self.dims['d_model'], self.run_specs['temperature'])
-        self.encoder = Encoder.load(path = self._encoder_path)
+        self.encoder = parser.Encoder.load(path = self._encoder_path)
         # return
 
     def embedPass(self, in_batch):
@@ -56,7 +56,9 @@ class Nova(tf.keras.Model):
         return probabilities
     #generate model outputs
     def generate(self, in_batch, training = False):
-
+        token_batch = tokenizer.inBatch(in_batch)
+        print(token_batch)
+        encoded_batch = self.encoder(token_batch)
         pass
     #get config for serialization
     def get_config(self):
