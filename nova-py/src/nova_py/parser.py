@@ -26,7 +26,7 @@ class Memory:
 
 # Encoder class for encoding sequences based on predefined tagging and transition logic.
 class Encoder(tf.Module):
-    def __init__(self, n_limit=None):
+    def __init__(self, _transition_matrix = None, _transition_states = None):
         # Load in tags
         self.parent = Path(__file__).resolve().parent
         with open(os.path.join(self.parent, "model/tags.json"), "r") as f:
@@ -35,14 +35,18 @@ class Encoder(tf.Module):
         with open(os.path.join(self.parent, "model/predefined_tags.json"), "r") as f:
             self.predefinitions = json.load(f) # Predefined tag mappings for tokens.
         # Initialize transition matrix; defaults to a zero matrix if not provided.
-        self.TransitionMatrix = tf.Variable([[1/len(self.tags) for i in range(len(self.tags))]], dtype = tf.float64)
+        if _transition_matrix:
+            self.TransitionMatrix = _transition_matrix
+        else:
+            self.TransitionMatrix = tf.Variable([[1/len(self.tags) for i in range(len(self.tags))]], dtype = tf.float64)
         # Initialize transition states; defaults to an empty dictionary if not provided.
-        self.TransitionStates = {'': 0}
+        if _transition_states:
+            self.TransitionStates = _transition_states
+        else:
+            self.TransitionStates = {'': 0}
         # Store constants for encoder pattern limits
-        self.constants = {
-            "n_limit": n_limit,
-            "max_combos": (len(self.tags) - 1) ** n_limit
-        }
+        with open(os.path.join(self.parent, "model/hyperparameters.yaml"), "r") as f:
+            self.n_limit = yaml.safe_load(f)['encoder']['n_limit']
 
     # static method for reenforcement learning
     @staticmethod
@@ -185,34 +189,19 @@ class Encoder(tf.Module):
         return
 
     # Save the encoder state and transition matrix.
-    def save(self, path=None):
+    def save(self):
         os.makedirs(path, exist_ok=True)
-        with open(os.path.join(path, "predefined_tags.json"), "w") as f:
-            json.dump(self.predefinitions, f)
-        with open(os.path.join(path, "tags.json"), "w") as f:
-            json.dump(self.tags, f)
+        path = os.path.join(self.parent, "model")
         with open(os.path.join(path, "transition_states.json"), "w") as f:
             json.dump(self.TransitionStates, f)
-        with open(os.path.join(path, "hyperparameters.yaml"), "r") as f:
-            existing_yaml = yaml.safe_load(f) or {}
-        existing_yaml["encoder"] = self.constants
-        print(dir(existing_yaml))
-        with open(os.path.join(path, "hyperparameters.yaml"), "w") as f:
-            yaml.dump(existing_yaml, f, default_flow_style=False, Dumper=yaml.SafeDumper)
         np.save(os.path.join(path, "transition_matrix.npy"), self.TransitionMatrix.numpy())
         return
 
     # Load an encoder instance from saved files.
     @classmethod
-    def load(cls, path=None):
-        with open(os.path.join(path, "predefined_tags.json"), "r") as f:
-            predef_tags = json.load(f)
-        with open(os.path.join(path, "tags.json"), "r") as f:
-            tags = json.load(f)
+    def load(cls):
+        path = os.path.join(self.parent, "model")
         with open(os.path.join(path, "transition_states.json"), "r") as f:
             transition_states = json.load(f)
-        with open(os.path.join(path, "constants.json"), "r") as f:
-            n_limit = json.load(f)["n_limit"]
         transition_matrix = tf.Variable(np.load(os.path.join(path, "transition_matrix.npy")))
-        return cls(tags=tags, n_limit=n_limit, predefinitions=predef_tags,
-                   transition_states=transition_states, transition_matrix=transition_matrix)
+        return cls(_transition_states=transition_states, _transition_matrix=transition_matrix)
