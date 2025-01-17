@@ -43,7 +43,7 @@ class Encoder(tf.Module):
         if _transition_states:
             self.TransitionStates = _transition_states
         else:
-            self.TransitionStates = {0:''}
+            self.TransitionStates = {'':0}
         # Store constants for encoder pattern limits
         with open(os.path.join(self.parent, "model/hyperparameters.yaml"), "r") as f:
             self.n_limit = yaml.safe_load(f)['encoder']['n_limit']
@@ -54,6 +54,21 @@ class Encoder(tf.Module):
                 return tag
         return ''
 
+    def tag(self, batch):
+        b = batch.shape[1]
+        sequence = [j.decode('utf-8') for j in tf.reshape(batch, [-1]).numpy()]
+        transition = []
+        for i in range(0, len(sequence)):
+            if i%(b-1):
+                transition = []
+            else:
+                transition.append(sequence[i])
+            lookup = ' -> '.join(transition)
+            state = self.TransitionStates[lookup]
+            dist = tf.nn.embedding_lookup(self.TransitionMatrix, state)
+            pass
+        return
+
     # Encoding function that processes a sequence and optionally uses a Memory instance.
     def __call__(self, batch, memory=None, training=False, sentiment=None):
         # Pre-tag tokens in the sequence based on predefinitions.
@@ -61,11 +76,15 @@ class Encoder(tf.Module):
         tag_batch = tf.map_fn(self.pretag, flat_batch)
         pretagged_batch = tf.transpose(tf.stack([flat_batch, tag_batch]))
         pretagged_batch = tf.reshape(pretagged_batch, shape = (batch.shape[0], batch.shape[1], 2))
+        # Begin inference
+        # unstack batch and use only pretagged tokens
+        inference_batch = tf.unstack(pretagged_batch, axis=2)
+        flat_inference = self.tag(inference_batch[1])
         return pretagged_batch # Return the encoded sequence as a string.
     # Add a new transition to the transition matrix.
     def addTransitions(self, tag_sequences):
         # add transition states
-        transition_states = {i+len(self.TransitionStates.keys()): tag_sequences[i] for i in range(0,len(tag_sequences))}
+        transition_states = {tag_sequences[i]: i+len(self.TransitionStates.keys()) for i in range(0,len(tag_sequences))}
         self.TransitionStates = {**self.TransitionStates, **transition_states}
         # add rows to the matrix
         n = len(tag_sequences)
