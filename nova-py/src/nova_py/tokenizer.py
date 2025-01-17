@@ -10,7 +10,6 @@ def word_split(string):
     response = []
     for tkn in space_arr:
         response += [t for t in re.split(r'([,;"\'\\n])', tkn) if t != '']
-        print(response)
     return response
 
 def inBatch(text_batch):
