@@ -4,7 +4,6 @@ import numpy as np
 import os
 import json
 import yaml
-import Levenshtein
 from pathlib import Path
 
 # Memory class manages a dictionary-like structure for storing and retrieving data sequences.
@@ -54,23 +53,35 @@ class Encoder(tf.Module):
                 return tag
         return ''
 
-    def tag(self, batch):
+    def tag(self, batch, num_samples):
         b = batch.shape[1]
         sequence = [j.decode('utf-8') for j in tf.reshape(batch, [-1]).numpy()]
         transition = []
         for i in range(0, len(sequence)):
+            if sequence[i] == '':
+                lookup = ' -> '.join(transition) #problem child
+                state = self.TransitionStates[lookup]
+                dist = tf.nn.embedding_lookup(self.TransitionMatrix, state)
+                # Convert probabilities to logits if needed (for stability)
+                logits = tf.math.log(dist)
+                # Reshape logits to 2D as `tf.random.categorical` expects 2D input
+                logits_2d = tf.reshape(logits, shape=(1, -1))
+                # Sampling
+                samples = tf.random.categorical(logits_2d, num_samples=num_samples)
+                samples = tf.squeeze(samples)
+                counts = np.bincount(samples.numpy(), minlength = dist.shape[0])
+                tag = list(self.tags.keys())[np.argmax(counts)]
+                sequence[i] = tag
             if i%(b-1):
                 transition = []
             else:
                 transition.append(sequence[i])
-            lookup = ' -> '.join(transition)
-            state = self.TransitionStates[lookup]
-            dist = tf.nn.embedding_lookup(self.TransitionMatrix, state)
-            pass
-        return
+                if len(transition) > self.n_limit:
+                    transition = transition[1:]
+        return tf.constant(sequence)
 
     # Encoding function that processes a sequence and optionally uses a Memory instance.
-    def __call__(self, batch, memory=None, training=False, sentiment=None):
+    def __call__(self, batch, memory=None, num_samples=25):
         # Pre-tag tokens in the sequence based on predefinitions.
         flat_batch = tf.reshape(batch, [-1])
         tag_batch = tf.map_fn(self.pretag, flat_batch)
@@ -79,8 +90,8 @@ class Encoder(tf.Module):
         # Begin inference
         # unstack batch and use only pretagged tokens
         inference_batch = tf.unstack(pretagged_batch, axis=2)
-        flat_inference = self.tag(inference_batch[1])
-        return pretagged_batch # Return the encoded sequence as a string.
+        flat_inference = self.tag(inference_batch[1], num_samples)
+        return flat_inference # Return the encoded sequence as a string.
     # Add a new transition to the transition matrix.
     def addTransitions(self, tag_sequences):
         # add transition states
