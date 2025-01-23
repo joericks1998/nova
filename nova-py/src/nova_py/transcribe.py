@@ -28,7 +28,9 @@ class MINT(tf.Module):
             self.TransitionStates = {'':0}
         # Store constants for encoder pattern limits
         with open(os.path.join(self.parent, "model/hyperparameters.yaml"), "r") as f:
-            self.n_limit = yaml.safe_load(f)['encoder']['n_limit']
+            yams = yaml.safe_load(f)['MINT']
+            self.n_limit = yams['n_limit']
+            self.cooling_factor = yams['cooling_factor']
 
     def pretag(self, token):
         for tag, v in self.predefinitions.items():
@@ -73,7 +75,7 @@ class MINT(tf.Module):
         return tf.reshape(tf.transpose(tf.stack([in_tokens, all_tags])), shape = batch.shape)
 
     # Encoding function that processes a sequence and optionally uses a Memory instance.
-    def __call__(self, batch, memory=None, num_samples=25):
+    def __call__(self, batch, num_samples=25):
         # Pre-tag tokens in the sequence based on predefinitions.
         flat_batch = tf.reshape(batch, [-1])
         tag_batch = tf.map_fn(self.pretag, flat_batch)
@@ -94,18 +96,28 @@ class MINT(tf.Module):
         self.TransitionMatrix = tf.concat([self.TransitionMatrix, new_transitions], axis = 0)
         return
 
-
-    def train(self, sequence_batch, ground_truths, num_epochs = None):
-        self.addTransitions(sequence_batch)
-        for sequence, ground_truth in zip(sequence_batch, ground_truths):
-            gt_idx = self.tags[ground_truth]
-            seq_idx = tf.constant([[self.TransitionStates[sequence]]])
+    def train(self, ground_truths, num_epochs = None):
+        token_sequence = [t.decode('utf-8') for t in tf.reshape(ground_truths[:,:,1], [-1]).numpy()]
+        out = []
+        L = 0
+        for i in range(0, len(token_sequence)-1):
+            # reset lower bound when max sequence length is hit
+            if i%ground_truths.shape[1] == 0:
+                L = i
+            # increment lower bound limit when max memory limit is reached
+            elif i - L > self.n_limit:
+                L += 1
+            lookup = ' -> '.join(token_sequence[L:i])
+            state = self.TransitionStates[lookup]
+            dist = tf.nn.embedding_lookup(self.TransitionMatrix, state)
+            target = token_sequence[i]
+            one_hot = tf.cast(tf.one_hot(self.tags[target], len(self.tags.keys())), tf.float64)
             for i in range(num_epochs):
-                probabilities = tf.nn.embedding_lookup(self.TransitionMatrix, seq_idx)
-                one_hot_tensor = tf.one_hot(seq_idx, self.TransitionMatrix.shape[0])
-                probabilities = tf.reduce_mean([probabilities, one_hot_tensor], axis=0)
-                self.TransitionMatrix = tf.tensor_scatter_nd_update(self.TransitionMatrix, seq_idx, [probabilities])
-                # however I assign this back to the transition matrix
+                dist = tf.reduce_mean([dist, one_hot/self.cooling_factor], axis = 0)
+                dist = dist/tf.reduce_sum(dist)
+                print(sum(dist))
+            self.TransitionMatrix = tf.tensor_scatter_nd_update(self.TransitionMatrix, tf.constant([[state]]), [dist])
+        return
 
     # Save the encoder state and transition matrix.
     def save(self):

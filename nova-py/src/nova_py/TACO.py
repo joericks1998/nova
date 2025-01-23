@@ -9,7 +9,7 @@ def word_split(string):
     space_arr = re.split(r'\s+', string)
     response = []
     for tkn in space_arr:
-        response += [t for t in re.split(r'([,;"\'\\n])', tkn) if t != '']
+        response += [t for t in re.split(r'([,;"\'\n])', tkn) if t != '']
     return response
 
 def inBatch(text_batch):

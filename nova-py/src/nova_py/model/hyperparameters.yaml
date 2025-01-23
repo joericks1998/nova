@@ -1,5 +1,6 @@
-encoder:
+MINT:
   n_limit: 3
+  cooling_factor: 50
 nova:
   dimensions:
     d_model: 1024
