@@ -6,133 +6,234 @@ import json
 import yaml
 from pathlib import Path
 
-# Encoder class for encoding sequences based on predefined tagging and transition logic.
 class MINT(tf.Module):
-    def __init__(self, _transition_matrix = None, _transition_states = None):
-        # Load in tags
+    """
+    A class for encoding sequences based on predefined tagging and transition logic.
+
+    Attributes:
+        TransitionMatrix (tf.Variable): Transition matrix used for tagging sequences.
+        TransitionStates (dict): Dictionary mapping sequence states to indices.
+        tags (dict): Mapping of tags to their indices.
+        predefinitions (dict): Predefined tags for specific tokens.
+        n_limit (int): Maximum memory limit for sequence length.
+        cooling_factor (float): Factor to smooth probabilities during training.
+    """
+
+    def __init__(self, _transition_matrix=None, _transition_states=None):
+        """
+        Initialize the MINT encoder.
+
+        Args:
+            _transition_matrix (tf.Variable, optional): A predefined transition matrix. Defaults to None.
+            _transition_states (dict, optional): A predefined set of transition states. Defaults to None.
+        """
+        # Resolve the path of the current file's directory
         self.parent = Path(__file__).resolve().parent
+
+        # Load tag mappings from JSON file
         with open(os.path.join(self.parent, "model/tags.json"), "r") as f:
-            self.tags = json.load(f) # Dictionary of tag mappings.
-        # Load predefinitions
+            self.tags = json.load(f)
+
+        # Load predefined tag mappings from JSON file
         with open(os.path.join(self.parent, "model/predefined_tags.json"), "r") as f:
-            self.predefinitions = json.load(f) # Predefined tag mappings for tokens.
-        # Initialize transition matrix; defaults to a zero matrix if not provided.
+            self.predefinitions = json.load(f)
+
+        # Initialize the transition matrix; if not provided, use a uniform distribution
         if _transition_matrix:
             self.TransitionMatrix = _transition_matrix
         else:
-            self.TransitionMatrix = tf.Variable([[1/len(self.tags) for i in range(len(self.tags))]], dtype = tf.float64)
-        # Initialize transition states; defaults to an empty dictionary if not provided.
+            self.TransitionMatrix = tf.Variable(
+                [[1 / len(self.tags) for _ in range(len(self.tags))]], dtype=tf.float64
+            )
+
+        # Initialize transition states; defaults to an empty dictionary if not provided
         if _transition_states:
             self.TransitionStates = _transition_states
         else:
-            self.TransitionStates = {'':0}
-        # Store constants for encoder pattern limits
+            self.TransitionStates = {'': 0}
+
+        # Load hyperparameters from YAML file
         with open(os.path.join(self.parent, "model/hyperparameters.yaml"), "r") as f:
             yams = yaml.safe_load(f)['MINT']
-            self.n_limit = yams['n_limit']
-            self.cooling_factor = yams['cooling_factor']
+            self.n_limit = yams['n_limit']  # Set the maximum sequence memory limit
+            self.cooling_factor = yams['cooling_factor']  # Set the cooling factor for probability smoothing
 
     def pretag(self, token):
-        for tag, v in self.predefinitions.items():
-            if token.numpy().decode('utf-8') in v:
+        """
+        Assign a predefined tag to a token if it exists in the predefinitions.
+
+        Args:
+            token (tf.Tensor): The token to tag.
+
+        Returns:
+            str: The corresponding tag or an empty string if no match is found.
+        """
+        # Iterate over predefined tags and check if the token matches any predefined values
+        for tag, values in self.predefinitions.items():
+            if token.numpy().decode('utf-8') in values:
                 return tag
-        return ''
+        return ''  # Return an empty string if no match is found
 
     def tag(self, batch, num_samples):
-        existing_tags = batch[:,:,1]
+        """
+        Perform sequence tagging and sampling based on transition probabilities.
+
+        Args:
+            batch (tf.Tensor): Batch of tokens to be tagged.
+            num_samples (int): Number of samples for probabilistic tagging.
+
+        Returns:
+            tf.Tensor: Batch with inferred tags.
+        """
+        # Extract existing tags from the input batch
+        existing_tags = batch[:, :, 1]
+        # Flatten the tag sequence and decode to strings
         sequence = [j.decode('utf-8') for j in tf.reshape(existing_tags, [-1]).numpy()]
-        L = 0
-        for i in range(0, len(sequence)):
-            # reset lower bound when max sequence length is hit
-            if i%batch.shape[1] == 0:
+        L = 0  # Initialize the lower bound of the sequence window
+
+        # Iterate through the sequence
+        for i in range(len(sequence)):
+            # Reset the lower bound at the start of a new sequence
+            if i % batch.shape[1] == 0:
                 L = i
-            # increment lower bound limit when max memory limit is reached
+            # Increment the lower bound if the memory limit is exceeded
             elif i - L > self.n_limit:
                 L += 1
-            # if tag is empty...
+
+            # If the current tag is empty, infer a tag
             if sequence[i] == '':
-                # lookup sequence of previous tokens
+                # Build a lookup sequence of previous tokens
                 lookup = ' -> '.join(sequence[L:i])
-                state = self.TransitionStates[lookup]
-                # lookup probabilities using transition state
+                state = self.TransitionStates.get(lookup, 0)  # Get the transition state
+
+                # Fetch transition probabilities for the state
                 dist = tf.nn.embedding_lookup(self.TransitionMatrix, state)
-                # Convert probabilities to logits if needed (for stability)
-                logits = tf.math.log(dist)
-                # Reshape logits to 2D as `tf.random.categorical` expects 2D input
-                logits_2d = tf.reshape(logits, shape=(1, -1))
-                # Sampling
+                logits = tf.math.log(dist)  # Convert probabilities to logits
+                logits_2d = tf.reshape(logits, shape=(1, -1))  # Reshape logits for sampling
+
+                # Sample tags based on probabilities
                 samples = tf.random.categorical(logits_2d, num_samples=num_samples)
                 samples = tf.squeeze(samples)
-                counts = np.bincount(samples.numpy(), minlength = dist.shape[0])
-                tag = list(self.tags.keys())[np.argmax(counts)]
-                # assign sampled tag to sequence
-                sequence[i] = tag
-        # flatten tokens from in batch
-        in_tokens = tf.reshape(batch[:,:,0], [-1])
-        # make inference tags a tensor
-        all_tags = tf.constant(sequence)
-        # return inference batch in its original form with tags filled
-        return tf.reshape(tf.transpose(tf.stack([in_tokens, all_tags])), shape = batch.shape)
+                counts = np.bincount(samples.numpy(), minlength=dist.shape[0])
+                tag = list(self.tags.keys())[np.argmax(counts)]  # Determine the most frequent sampled tag
+                sequence[i] = tag  # Assign the inferred tag
 
-    # Encoding function that processes a sequence and optionally uses a Memory instance.
+        # Reshape the input tokens and inferred tags into the original batch format
+        in_tokens = tf.reshape(batch[:, :, 0], [-1])
+        all_tags = tf.constant(sequence)
+        return tf.reshape(tf.transpose(tf.stack([in_tokens, all_tags])), shape=batch.shape)
+
     def __call__(self, batch, num_samples=25):
-        # Pre-tag tokens in the sequence based on predefinitions.
+        """
+        Encode a sequence and return the tagged batch.
+
+        Args:
+            batch (tf.Tensor): Batch of input tokens.
+            num_samples (int): Number of samples for probabilistic tagging. Defaults to 25.
+
+        Returns:
+            tf.Tensor: Tagged batch.
+        """
+        # Flatten the batch and pre-tag tokens based on predefined mappings
         flat_batch = tf.reshape(batch, [-1])
         tag_batch = tf.map_fn(self.pretag, flat_batch)
         pretagged_batch = tf.transpose(tf.stack([flat_batch, tag_batch]))
-        inference_batch = tf.reshape(pretagged_batch, shape = (batch.shape[0], batch.shape[1], 2))
-        # Begin inference
-        out_batch = self.tag(inference_batch, num_samples)
-        return out_batch # Return the encoded sequence as a string.
-    # Add a new transition to the transition matrix.
-    def addTransitions(self, tag_sequences):
-        # add transition states
-        transition_states = {tag_sequences[i]: i+len(self.TransitionStates.keys()) for i in range(0,len(tag_sequences))}
-        self.TransitionStates = {**self.TransitionStates, **transition_states}
-        # add rows to the matrix
-        n = len(tag_sequences)
-        m = self.TransitionMatrix.shape[1]
-        new_transitions = tf.cast(tf.fill([n,m], 1/m), tf.float64)
-        self.TransitionMatrix = tf.concat([self.TransitionMatrix, new_transitions], axis = 0)
-        return
 
-    def train(self, ground_truths, num_epochs = None):
-        token_sequence = [t.decode('utf-8') for t in tf.reshape(ground_truths[:,:,1], [-1]).numpy()]
-        out = []
-        L = 0
-        for i in range(0, len(token_sequence)-1):
-            # reset lower bound when max sequence length is hit
-            if i%ground_truths.shape[1] == 0:
+        # Reshape the pre-tagged batch for inference
+        inference_batch = tf.reshape(pretagged_batch, shape=(batch.shape[0], batch.shape[1], 2))
+        return self.tag(inference_batch, num_samples)  # Perform tagging and return the result
+
+    def addTransitions(self, tag_sequences):
+        """
+        Add new transitions to the transition matrix and update states.
+
+        Args:
+            tag_sequences (list[str]): List of new tag sequences to add.
+        """
+        # Generate new transition states based on the provided sequences
+        transition_states = {
+            tag_sequences[i]: i + len(self.TransitionStates.keys()) for i in range(len(tag_sequences))
+        }
+        self.TransitionStates = {**self.TransitionStates, **transition_states}  # Merge new states
+
+        # Create new rows for the transition matrix with uniform probabilities
+        n = len(tag_sequences)  # Number of new states
+        m = self.TransitionMatrix.shape[1]  # Number of tags
+        new_transitions = tf.cast(tf.fill([n, m], 1 / m), tf.float64)
+        self.TransitionMatrix = tf.concat([self.TransitionMatrix, new_transitions], axis=0)  # Append new rows
+
+    def train(self, ground_truths, num_epochs=None):
+        """
+        Train the transition matrix based on ground truth sequences.
+
+        Args:
+            ground_truths (tf.Tensor): Ground truth sequences with tokens and tags.
+            num_epochs (int, optional): Number of epochs for training. Defaults to None.
+        """
+        # Flatten the ground truth tags into a sequence
+        token_sequence = [t.decode('utf-8') for t in tf.reshape(ground_truths[:, :, 1], [-1]).numpy()]
+        L = 0  # Initialize the lower bound of the sequence window
+
+        # Iterate through the sequence
+        for i in range(len(token_sequence) - 1):
+            # Reset the lower bound at the start of a new sequence
+            if i % ground_truths.shape[1] == 0:
                 L = i
-            # increment lower bound limit when max memory limit is reached
+            # Increment the lower bound if the memory limit is exceeded
             elif i - L > self.n_limit:
                 L += 1
-            lookup = ' -> '.join(token_sequence[L:i])
-            state = self.TransitionStates[lookup]
-            dist = tf.nn.embedding_lookup(self.TransitionMatrix, state)
-            target = token_sequence[i]
-            one_hot = tf.cast(tf.one_hot(self.tags[target], len(self.tags.keys())), tf.float64)
-            for i in range(num_epochs):
-                dist = tf.reduce_mean([dist, one_hot/self.cooling_factor], axis = 0)
-                dist = dist/tf.reduce_sum(dist)
-                print(sum(dist))
-            self.TransitionMatrix = tf.tensor_scatter_nd_update(self.TransitionMatrix, tf.constant([[state]]), [dist])
-        return
 
-    # Save the encoder state and transition matrix.
+            # Build a lookup sequence of previous tokens
+            lookup = ' -> '.join(token_sequence[L:i])
+            state = self.TransitionStates.get(lookup, 0)  # Get the transition state
+
+            # Fetch transition probabilities for the state
+            dist = tf.nn.embedding_lookup(self.TransitionMatrix, state)
+            target = token_sequence[i]  # Get the target tag
+            one_hot = tf.cast(tf.one_hot(self.tags[target], len(self.tags.keys())), tf.float64)  # One-hot encode the target
+
+            # Update the transition probabilities over epochs
+            for _ in range(num_epochs or 1):
+                dist = tf.reduce_mean([dist, one_hot / self.cooling_factor], axis=0)  # Blend probabilities
+                dist = dist / tf.reduce_sum(dist)  # Normalize the probabilities
+
+            # Update the transition matrix with the new distribution
+            self.TransitionMatrix = tf.tensor_scatter_nd_update(
+                self.TransitionMatrix, tf.constant([[state]]), [dist]
+            )
+
     def save(self):
-        os.makedirs(path, exist_ok=True)
-        path = os.path.join(self.parent, "model")
+        """
+        Save the encoder's state and transition matrix to disk.
+        """
+        path = os.path.join(self.parent, "model")  # Define the save path
+        os.makedirs(path, exist_ok=True)  # Ensure the directory exists
+
+        # Save the transition states as a JSON file
         with open(os.path.join(path, "transition_states.json"), "w") as f:
             json.dump(self.TransitionStates, f)
-        np.save(os.path.join(path, "transition_matrix.npy"), self.TransitionMatrix.numpy())
-        return
 
-    # Load an encoder instance from saved files.
+        # Save the transition matrix as a NumPy file
+        np.save(os.path.join(path, "transition_matrix.npy"), self.TransitionMatrix.numpy())
+
     @classmethod
     def load(cls):
-        path = os.path.join(self.parent, "model")
+        """
+        Load an encoder instance from saved files.
+
+        Returns:
+            MINT: An instance of the MINT encoder.
+        """
+        path = os.path.join(cls.parent, "model")  # Define the load path
+
+        # Load transition states from JSON file
         with open(os.path.join(path, "transition_states.json"), "r") as f:
             transition_states = json.load(f)
-        transition_matrix = tf.Variable(np.load(os.path.join(path, "transition_matrix.npy")))
+
+        # Load transition matrix from NumPy file
+        transition_matrix = tf.Variable(
+            np.load(os.path.join(path, "transition_matrix.npy"))
+        )
+
+        # Return a new instance of the class with loaded parameters
         return cls(_transition_states=transition_states, _transition_matrix=transition_matrix)
