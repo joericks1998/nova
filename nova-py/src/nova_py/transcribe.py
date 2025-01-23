@@ -6,25 +6,8 @@ import json
 import yaml
 from pathlib import Path
 
-# Memory class manages a dictionary-like structure for storing and retrieving data sequences.
-class Memory:
-    def __init__(self):
-        self.Q = {}  # Dictionary to store sequences, keyed by optional identifiers.
-
-    # Pop the last element of a sequence associated with key `k`.
-    def pop(self, k=None):
-        out = self.Q[k][len(self.Q[k]) - 1]  # Retrieve the last element.
-        if len(self.Q[k]) > 2:  # If there are more than two elements, trim the sequence.
-            self.Q[k] = self.Q[k][:len(self.Q[k]) - 2]
-        return out
-
-    # Push a new token to the sequence associated with key `k`.
-    def push(self, token, k=None):
-        self.Q[k].append(token)  # Append the token to the appropriate sequence.
-        return
-
 # Encoder class for encoding sequences based on predefined tagging and transition logic.
-class Encoder(tf.Module):
+class MINT(tf.Module):
     def __init__(self, _transition_matrix = None, _transition_states = None):
         # Load in tags
         self.parent = Path(__file__).resolve().parent
