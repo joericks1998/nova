@@ -1,0 +1,6 @@
+Metadata-Version: 2.1
+Name: nova_py
+Version: 0.1.1
+Requires-Dist: numpy
+Requires-Dist: tensorflow
+Requires-Dist: Levenshtein
