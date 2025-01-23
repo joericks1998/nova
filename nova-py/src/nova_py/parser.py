@@ -54,13 +54,22 @@ class Encoder(tf.Module):
         return ''
 
     def tag(self, batch, num_samples):
-        b = batch.shape[1]
-        sequence = [j.decode('utf-8') for j in tf.reshape(batch, [-1]).numpy()]
-        transition = []
+        existing_tags = batch[:,:,1]
+        sequence = [j.decode('utf-8') for j in tf.reshape(existing_tags, [-1]).numpy()]
+        L = 0
         for i in range(0, len(sequence)):
+            # reset lower bound when max sequence length is hit
+            if i%batch.shape[1] == 0:
+                L = i
+            # increment lower bound limit when max memory limit is reached
+            elif i - L > self.n_limit:
+                L += 1
+            # if tag is empty...
             if sequence[i] == '':
-                lookup = ' -> '.join(transition) #problem child
+                # lookup sequence of previous tokens
+                lookup = ' -> '.join(sequence[L:i])
                 state = self.TransitionStates[lookup]
+                # lookup probabilities using transition state
                 dist = tf.nn.embedding_lookup(self.TransitionMatrix, state)
                 # Convert probabilities to logits if needed (for stability)
                 logits = tf.math.log(dist)
@@ -71,14 +80,14 @@ class Encoder(tf.Module):
                 samples = tf.squeeze(samples)
                 counts = np.bincount(samples.numpy(), minlength = dist.shape[0])
                 tag = list(self.tags.keys())[np.argmax(counts)]
+                # assign sampled tag to sequence
                 sequence[i] = tag
-            if i%(b-1):
-                transition = []
-            else:
-                transition.append(sequence[i])
-                if len(transition) > self.n_limit:
-                    transition = transition[1:]
-        return tf.constant(sequence)
+        # flatten tokens from in batch
+        in_tokens = tf.reshape(batch[:,:,0], [-1])
+        # make inference tags a tensor
+        all_tags = tf.constant(sequence)
+        # return inference batch in its original form with tags filled
+        return tf.reshape(tf.transpose(tf.stack([in_tokens, all_tags])), shape = batch.shape)
 
     # Encoding function that processes a sequence and optionally uses a Memory instance.
     def __call__(self, batch, memory=None, num_samples=25):
@@ -86,12 +95,10 @@ class Encoder(tf.Module):
         flat_batch = tf.reshape(batch, [-1])
         tag_batch = tf.map_fn(self.pretag, flat_batch)
         pretagged_batch = tf.transpose(tf.stack([flat_batch, tag_batch]))
-        pretagged_batch = tf.reshape(pretagged_batch, shape = (batch.shape[0], batch.shape[1], 2))
+        inference_batch = tf.reshape(pretagged_batch, shape = (batch.shape[0], batch.shape[1], 2))
         # Begin inference
-        # unstack batch and use only pretagged tokens
-        inference_batch = tf.unstack(pretagged_batch, axis=2)
-        flat_inference = self.tag(inference_batch[1], num_samples)
-        return flat_inference # Return the encoded sequence as a string.
+        out_batch = self.tag(inference_batch, num_samples)
+        return out_batch # Return the encoded sequence as a string.
     # Add a new transition to the transition matrix.
     def addTransitions(self, tag_sequences):
         # add transition states
