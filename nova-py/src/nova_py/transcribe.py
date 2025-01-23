@@ -39,7 +39,7 @@ class MINT(tf.Module):
             self.predefinitions = json.load(f)
 
         # Initialize the transition matrix; if not provided, use a uniform distribution
-        if _transition_matrix:
+        if _transition_matrix is not None:
             self.TransitionMatrix = _transition_matrix
         else:
             self.TransitionMatrix = tf.Variable(
@@ -47,7 +47,7 @@ class MINT(tf.Module):
             )
 
         # Initialize transition states; defaults to an empty dictionary if not provided
-        if _transition_states:
+        if _transition_states is not None:
             self.TransitionStates = _transition_states
         else:
             self.TransitionStates = {'': 0}
@@ -211,7 +211,7 @@ class MINT(tf.Module):
 
         # Save the transition states as a JSON file
         with open(os.path.join(path, "transition_states.json"), "w") as f:
-            json.dump(self.TransitionStates, f)
+            json.dump(self.TransitionStates, f, indent=4)
 
         # Save the transition matrix as a NumPy file
         np.save(os.path.join(path, "transition_matrix.npy"), self.TransitionMatrix.numpy())
@@ -224,7 +224,7 @@ class MINT(tf.Module):
         Returns:
             MINT: An instance of the MINT encoder.
         """
-        path = os.path.join(cls.parent, "model")  # Define the load path
+        path = os.path.join(Path(__file__).resolve().parent, "model")  # Define the load path
 
         # Load transition states from JSON file
         with open(os.path.join(path, "transition_states.json"), "r") as f:
