@@ -4,16 +4,15 @@ import tensorflow as tf
 
 def word_split(string):
     if string == "":
-        msg = "Input string must not be of length 0"
-        raise ValueError(msg)
+        return
     space_arr = re.split(r'\s+', string)
     response = []
     for tkn in space_arr:
-        response += [t for t in re.split(r'([,;"\'\n])', tkn) if t != '']
+        response += [t.lower() for t in re.split(r'([,;"\'\n])', tkn) if t != '']
     return response
 
 def inBatch(text_batch):
-    token_batch = list(map(word_split, text_batch))
+    token_batch = [t for t in map(word_split, text_batch) if t]
     max_seq_len = max(list(map(len, token_batch)))
     pad_batch = []
     for seq in token_batch:
