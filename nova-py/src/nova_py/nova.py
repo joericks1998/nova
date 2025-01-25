@@ -24,11 +24,12 @@ class Model(tf.keras.Model):
         #initialize transformers
         self.tfmrs = {i+1: transformer.Layer(self.dims['d_model'], self.dims['num_heads'],
                                             self.dims['dff'], self.run_specs['dropout_rate']) for i in range(0,self.dims['num_transformers'])}
-        self.final = final.Layer(len(self.vocabulary), self.dims['d_model'], self.run_specs['temperature'])
+        self.final = final.Layer(self.vocabulary, self.dims['d_model'], self.run_specs['temperature'])
+        self.top_p = self.run_specs['top_p']
         self.MINT = MINT.load()
         # return
 
-    def embedPass(self, in_batch):
+    def _embedPass(self, in_batch):
         # embedding tokenized batch
         big_stack = []
         for seq in in_batch:
@@ -37,7 +38,7 @@ class Model(tf.keras.Model):
         # stacking all batches into the embedding batch
         return tf.stack(big_stack)
 
-    def transformPass(self, embed_batch):
+    def _transformPass(self, embed_batch):
         fpass_batch = embed_batch
         for tfmr in self.tfmrs.values():
             fpass_batch = tfmr(fpass_batch)
@@ -45,17 +46,29 @@ class Model(tf.keras.Model):
 
     def _forwardPass(self, in_batch):
         #embed token batch
-        embd_logits = self.embedPass(in_batch)
+        embd_logits = self._embedPass(in_batch)
         # pass through transformer layers
-        tfmr_logits = self.transformPass(embd_logits)
+        tfmr_logits = self._transformPass(embd_logits)
         # pass through last layer for probabilities and refiting
-        probabilities = self.final(tfmr_logits)
-        return probabilities
+        out = self.final(tfmr_logits, top_p = self.top_p)
+        return out
     #generate model outputs
-    def generate(self, batch):
+    def generate_regres(self, batch, token_limit = 250):
         token_batch = TACO.inBatch(batch)
         encoded_batch = self.MINT(token_batch, translate = False)
-        return encoded_batch
+        o_batch = None
+        return self._forwardPass(encoded_batch)
+        # for sequence in encoded_batch:
+        #     o_sequence = []
+        #     for i in range(token_limit):
+        #         o_token = self._forwardPass(sequence)
+        #         o_sequence.append(o_token)
+        #     o_tensor = tf.constant(o_sequence)
+        #     if o_batch:
+        #         o_batch = tf.stack([o_batch, o_tensor])
+        #     else:
+        #         o_batch = o_tensor
+        # return o_batch
     #get config for serialization
     def get_config(self):
         return model_io.master_config(Model.__init__)

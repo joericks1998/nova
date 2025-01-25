@@ -10,7 +10,7 @@ nova:
   run_specs:
     dropout_rate: 0.5
     num_samples: 15
-    p: 0.8
+    top_p: 0.8
     temperature: 0.01
   training_specs:
     learning_rate: 0.01
