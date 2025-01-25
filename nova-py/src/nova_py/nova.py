@@ -1,18 +1,15 @@
 import numpy as np
 import tensorflow as tf
 from .architecture import embedding, transformer, final
-from .semantics import parser, tokenizer
+from . import TACO
+from .transcribe import MINT
 from pathlib import Path
 import yaml
 
-class Nova(tf.keras.Model):
-
-    @staticmethod
-    def modelInit(hp_path, vocab_path):
-        pass
+class Model(tf.keras.Model):
 
     def __init__(self, _hp_path = 'model/hyperparameters.yaml', _vocab_path = 'model/vocabulary.txt', _encoder_path = 'model/semantics'):
-        super(Nova, self).__init__()
+        super(Model, self).__init__()
         parent = Path(__file__).resolve().parent
         self._hp_path = parent/_hp_path
         self._vocab_path = parent/_vocab_path
@@ -28,7 +25,7 @@ class Nova(tf.keras.Model):
         self.tfmrs = {i+1: transformer.Layer(self.dims['d_model'], self.dims['num_heads'],
                                             self.dims['dff'], self.run_specs['dropout_rate']) for i in range(0,self.dims['num_transformers'])}
         self.final = final.Layer(len(self.vocabulary), self.dims['d_model'], self.run_specs['temperature'])
-        self.encoder = parser.Encoder.load(path = self._encoder_path)
+        self.MINT = MINT.load()
         # return
 
     def embedPass(self, in_batch):
@@ -46,7 +43,7 @@ class Nova(tf.keras.Model):
             fpass_batch = tfmr(fpass_batch)
         return fpass_batch
 
-    def forwardPass(self, in_batch):
+    def _forwardPass(self, in_batch):
         #embed token batch
         embd_logits = self.embedPass(in_batch)
         # pass through transformer layers
@@ -55,11 +52,10 @@ class Nova(tf.keras.Model):
         probabilities = self.final(tfmr_logits)
         return probabilities
     #generate model outputs
-    def generate(self, in_batch, training = False):
-        token_batch = tokenizer.inBatch(in_batch)
-        print(token_batch)
-        encoded_batch = self.encoder(token_batch)
-        pass
+    def generate(self, batch):
+        token_batch = TACO.inBatch(batch)
+        encoded_batch = self.MINT(token_batch, translate = False)
+        return encoded_batch
     #get config for serialization
     def get_config(self):
         return model_io.master_config(Model.__init__)

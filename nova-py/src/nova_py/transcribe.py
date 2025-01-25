@@ -38,6 +38,10 @@ class MINT(tf.Module):
         with open(os.path.join(self.parent, "model/predefined_tags.json"), "r") as f:
             self.predefinitions = json.load(f)
 
+        # Load translator from JSON file
+        with open(os.path.join(self.parent, "model/translator.json"), "r") as f:
+            self.translator = json.load(f)
+
         # Initialize the transition matrix; if not provided, use a uniform distribution
         if _transition_matrix is not None:
             self.TransitionMatrix = _transition_matrix
@@ -58,7 +62,7 @@ class MINT(tf.Module):
             self.n_limit = yams['n_limit']  # Set the maximum sequence memory limit
             self.cooling_factor = yams['cooling_factor']  # Set the cooling factor for probability smoothing
 
-    def pretag(self, token):
+    def pretag(self, batch, stage = False):
         """
         Assign a predefined tag to a token if it exists in the predefinitions.
 
@@ -69,10 +73,16 @@ class MINT(tf.Module):
             str: The corresponding tag or an empty string if no match is found.
         """
         # Iterate over predefined tags and check if the token matches any predefined values
-        for tag, values in self.predefinitions.items():
-            if token.numpy().decode('utf-8') in values:
-                return tag
-        return ''  # Return an empty string if no match is found
+        flat_batch = tf.reshape(batch, [-1])
+        tags = []
+        for token in flat_batch.numpy():
+            tag = ''
+            for k, v in self.predefinitions.items():
+                if token.decode('utf-8') in v:
+                    tag = k
+            tags.append(tag)
+        out_batch = tf.transpose(tf.stack([flat_batch, tf.constant(tags)]))
+        return out_batch
 
     def tag(self, batch, num_samples):
         """
@@ -123,7 +133,27 @@ class MINT(tf.Module):
         all_tags = tf.constant(sequence)
         return tf.reshape(tf.transpose(tf.stack([in_tokens, all_tags])), shape=batch.shape)
 
-    def __call__(self, batch, num_samples=25):
+    def translate(self, processed_batch):
+        o_batch = None
+        for sequence in processed_batch:
+            o_sequence = []
+            for tup in sequence.numpy():
+                print(tup)
+                if self.translator[tup[1].decode('utf-8')] == 2:
+                    o_sequence = [tup[1].decode('utf-8')]
+                    break
+                elif self.translator[tup[1].decode('utf-8')]:
+                    o_sequence.append(tup[1].decode('utf-8'))
+                else:
+                    o_sequence.append(tup[0].decode('utf-8'))
+            o_tensor = tf.constant(o_sequence)
+            if o_batch:
+                o_batch = tf.stack([o_batch, o_tensor])
+            else:
+                o_batch = o_tensor
+        return o_batch
+
+    def __call__(self, batch, num_samples=25, translate = True):
         """
         Encode a sequence and return the tagged batch.
 
@@ -135,13 +165,16 @@ class MINT(tf.Module):
             tf.Tensor: Tagged batch.
         """
         # Flatten the batch and pre-tag tokens based on predefined mappings
-        flat_batch = tf.reshape(batch, [-1])
-        tag_batch = tf.map_fn(self.pretag, flat_batch)
-        pretagged_batch = tf.transpose(tf.stack([flat_batch, tag_batch]))
-
+        pretagged_batch = self.pretag(batch)
         # Reshape the pre-tagged batch for inference
         inference_batch = tf.reshape(pretagged_batch, shape=(batch.shape[0], batch.shape[1], 2))
-        return self.tag(inference_batch, num_samples)  # Perform tagging and return the result
+        # Tag batch
+        tagged_batch = self.tag(inference_batch, num_samples)
+        # If translate
+        if translate:
+            return self.translate(tagged_batch) # Perform tagging and return the result
+        else:
+            return tagged_batch
 
     def addTransitions(self, tag_sequences):
         """
@@ -201,7 +234,6 @@ class MINT(tf.Module):
             self.TransitionMatrix = tf.tensor_scatter_nd_update(
                 self.TransitionMatrix, tf.constant([[state]]), [dist]
             )
-
     def save(self):
         """
         Save the encoder's state and transition matrix to disk.

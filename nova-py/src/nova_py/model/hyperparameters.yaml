@@ -1,6 +1,6 @@
 MINT:
   n_limit: 3
-  cooling_factor: 50
+  cooling_factor: 2
 nova:
   dimensions:
     d_model: 1024
