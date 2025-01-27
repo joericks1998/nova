@@ -25,9 +25,9 @@ class Layer(tf.keras.layers.Layer):
         # Compute the cumulative probabilities
         cumulative_probs = tf.math.cumsum(sorted_probs, axis=-1)
         # Create a mask for tokens where cumulative probability <= p
-        mask = cumulative_probs <= p
+        mask = cumulative_probs <= top_p
         # Ensure at least one token is included
-        mask = tf.concat([[True], mask[:-1]], axis=0)
+        # mask = tf.concat([[True], mask[:-1]], axis=0)
         # Filter out tokens not in the top-p set
         top_p_probs = tf.boolean_mask(sorted_probs, mask)
         top_p_indices = tf.boolean_mask(sorted_indices, mask)

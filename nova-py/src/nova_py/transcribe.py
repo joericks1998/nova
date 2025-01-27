@@ -138,7 +138,6 @@ class MINT(tf.Module):
         for sequence in processed_batch:
             o_sequence = []
             for tup in sequence.numpy():
-                print(tup)
                 if self.translator[tup[1].decode('utf-8')] == 2:
                     o_sequence = [tup[1].decode('utf-8')]
                     break
@@ -150,7 +149,7 @@ class MINT(tf.Module):
             if o_batch:
                 o_batch = tf.stack([o_batch, o_tensor])
             else:
-                o_batch = o_tensor
+                o_batch = tf.expand_dims(o_tensor, axis = 0)
         return o_batch
 
     def __call__(self, batch, num_samples=25, translate = True):

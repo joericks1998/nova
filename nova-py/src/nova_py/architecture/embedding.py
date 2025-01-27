@@ -12,15 +12,15 @@ class Layer(tf.Module):
     def __call__(self, word):
         # Define initializer
         initializer = tf.keras.initializers.GlorotUniform()
-        if word.numpy() not in self.tokens.keys():
+        if word not in self.tokens.keys():
             # If the word is new and not yet in the dictionary
-            self.tokens[word.numpy()] = self.embeddings.shape[0]  # Assign the next index to the new word
+            self.tokens[word] = self.embeddings.shape[0]  # Assign the next index to the new word
             # Create a new embedding and concatenate it to the existing embeddings
             new_embedding = tf.Variable(initializer(shape = (1, self.d_model)))
             new_embeddings = tf.concat([self.embeddings, new_embedding], axis=0)
             self.embeddings = tf.Variable(new_embeddings)  # Update embeddings with the new concatenated tensor
         # Retrieve the embedding for the given word using its index
-        return tf.nn.embedding_lookup(self.embeddings, self.tokens[word.numpy()])
+        return tf.nn.embedding_lookup(self.embeddings, self.tokens[word])
 
     def __add__(self, other_layer):
         # Method to add two EmbeddingLayer instances

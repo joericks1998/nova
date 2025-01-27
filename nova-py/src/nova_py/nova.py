@@ -30,13 +30,10 @@ class Model(tf.keras.Model):
         # return
 
     def _embedPass(self, in_batch):
+        flat_batch = tf.reshape(in_batch, [-1])
         # embedding tokenized batch
-        big_stack = []
-        for seq in in_batch:
-            small_stack = tf.stack([self.embedder(tkn) for tkn in seq])
-            big_stack.append(small_stack)
-        # stacking all batches into the embedding batch
-        return tf.stack(big_stack)
+        embeddings = tf.stack([self.embedder(t.decode('utf-8')) for t in flat_batch.numpy()])
+        return tf.reshape(embeddings, shape = in_batch.shape+[embeddings.shape[1]])
 
     def _transformPass(self, embed_batch):
         fpass_batch = embed_batch
@@ -49,26 +46,18 @@ class Model(tf.keras.Model):
         embd_logits = self._embedPass(in_batch)
         # pass through transformer layers
         tfmr_logits = self._transformPass(embd_logits)
-        # pass through last layer for probabilities and refiting
-        out = self.final(tfmr_logits, top_p = self.top_p)
-        return out
+        # # pass through last layer for probabilities and refiting
+        idx = self.final(tfmr_logits, top_p = self.top_p)
+        return tf.constant(self.vocabulary[idx.numpy()])
     #generate model outputs
     def generate_regres(self, batch, token_limit = 250):
         token_batch = TACO.inBatch(batch)
-        encoded_batch = self.MINT(token_batch, translate = False)
-        o_batch = None
-        return self._forwardPass(encoded_batch)
-        # for sequence in encoded_batch:
-        #     o_sequence = []
-        #     for i in range(token_limit):
-        #         o_token = self._forwardPass(sequence)
-        #         o_sequence.append(o_token)
-        #     o_tensor = tf.constant(o_sequence)
-        #     if o_batch:
-        #         o_batch = tf.stack([o_batch, o_tensor])
-        #     else:
-        #         o_batch = o_tensor
-        # return o_batch
+        encoded_batch = self.MINT(token_batch, translate = True)
+        o_batch = encoded_batch
+        for i in range(token_limit):
+            o_tensor = self._forwardPass(o_batch)
+            print(tf.stack([o_batch, o_tensor], axis = 1))
+        return o_batch
     #get config for serialization
     def get_config(self):
         return model_io.master_config(Model.__init__)
