@@ -146,8 +146,8 @@ class MINT(tf.Module):
                 else:
                     o_sequence.append(tup[0].decode('utf-8'))
             o_tensor = tf.constant(o_sequence)
-            if o_batch:
-                o_batch = tf.stack([o_batch, o_tensor])
+            if o_batch is not None:
+                o_batch = tf.stack([o_batch, tf.expand_dims(o_tensor, axis = 0)])
             else:
                 o_batch = tf.expand_dims(o_tensor, axis = 0)
         return o_batch
