@@ -22,9 +22,11 @@ class Layer(tf.Module):
         self.layernorm = tf.keras.layers.LayerNormalization(epsilon = 1e-6)
         self.built = True
 
+    @tf.function(reduce_retracing=True)
     def default_kernel_transformation(self, x):
         return tf.nn.relu(x) + 1e-6
 
+    @tf.function(reduce_retracing=True)
     def split_heads(self, x, batch_size):
         """Split the last dimension into (num_heads, depth).
         Transpose the result to shape (batch_size, num_heads, seq_len, depth).
@@ -32,6 +34,7 @@ class Layer(tf.Module):
         x = tf.reshape(x, (batch_size, -1, self.num_heads, self.depth))
         return tf.transpose(x, perm=[0, 2, 1, 3])
 
+    @tf.function(reduce_retracing=True)
     def __call__(self, q, k, v, mask=None):
         batch_size = tf.shape(q)[0]
         seq_len = tf.shape(q)[1]

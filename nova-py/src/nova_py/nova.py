@@ -30,11 +30,10 @@ class Model(tf.keras.Model):
         self.MINT = MINT.load()
         self.built = True
         # return
-    @tf.function
     def _embedPass(self, in_batch):
         flat_batch = tf.reshape(in_batch, [-1])
         # embedding tokenized batch
-        embeddings = tf.map_fn(lambda t: self.embedder(tf.strings.as_string(t)), flat_batch)
+        embeddings = tf.stack([self.embedder(t.decode('utf-8')) for t in flat_batch.numpy()])
         return tf.reshape(embeddings, shape = in_batch.shape+[embeddings.shape[1]])
     # @tf.function
     def _transformPass(self, embed_batch):

@@ -8,11 +8,8 @@ class Layer(tf.Module):
         self.embeddings = tf.zeros(shape = (1, self.d_model))  # Initialize embeddings to None
         self.tokens = {"<pad>": 0}  # Dictionary to map words to their indices
         self.built = True
-        #placeholder for tf.Variable
-        self.new_embedding = None
 
     # Method to retrieve or create the embedding for a given word
-    @tf.function
     def __call__(self, word):
         # Define initializer
         initializer = tf.keras.initializers.GlorotUniform()
@@ -20,8 +17,7 @@ class Layer(tf.Module):
             # If the word is new and not yet in the dictionary
             self.tokens[word] = self.embeddings.shape[0]  # Assign the next index to the new word
             # Create a new embedding and concatenate it to the existing embeddings
-            if self.new_embedding is None:
-                new_embedding = tf.Variable(initializer(shape = (1, self.d_model)))
+            new_embedding = tf.Variable(initializer(shape = (1, self.d_model)))
             new_embeddings = tf.concat([self.embeddings, new_embedding], axis=0)
             self.embeddings = new_embeddings  # Update embeddings with the new concatenated tensor
         # Retrieve the embedding for the given word using its index
@@ -30,7 +26,6 @@ class Layer(tf.Module):
     def __add__(self, other_layer):
         # Method to add two EmbeddingLayer instances
         addition_layer = EmbeddingLayer(self.embedding_dim, name=self.name)  # Create a new EmbeddingLayer for the result
-
         if not isinstance(other_layer, EmbeddingLayer):
             # Ensure that the other_layer is also an EmbeddingLayer
             msg = f"Other embedding must be type: EmbeddingLayer, not {type(other_layer)}."
