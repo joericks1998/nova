@@ -35,7 +35,7 @@ class Model(tf.keras.Model):
         # embedding tokenized batch
         embeddings = tf.stack([self.embedder(t.decode('utf-8')) for t in flat_batch.numpy()])
         return tf.reshape(embeddings, shape = in_batch.shape+[embeddings.shape[1]])
-    # @tf.function
+    @tf.function(reduce_retracing=True)
     def _transformPass(self, embed_batch):
         fpass_batch = embed_batch
         i = 0

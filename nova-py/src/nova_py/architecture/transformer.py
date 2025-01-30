@@ -17,7 +17,7 @@ class Layer(tf.Module):
         # dropout
         self.dropout = tf.keras.layers.Dropout(dropout_rate)
         self.built = True
-
+    @tf.function(reduce_retracing=True)
     def __call__(self, batch, training=False):
         # feed through attention mechanism
         attentionized = self.attention(batch, batch, batch)
