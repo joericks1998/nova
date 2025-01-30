@@ -11,6 +11,7 @@ class Layer(tf.keras.layers.Layer):
         # Define the model temperature
         self.temperature = temperature
         # Define vocabulary
+        self.built = True
 
     # Define the forward pass logic for the layer.
     def __call__(self, inputs, top_p = 0.9):

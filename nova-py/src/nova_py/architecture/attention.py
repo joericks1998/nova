@@ -20,6 +20,7 @@ class Layer(tf.Module):
 
         # layer normalization
         self.layernorm = tf.keras.layers.LayerNormalization(epsilon = 1e-6)
+        self.built = True
 
     def default_kernel_transformation(self, x):
         return tf.nn.relu(x) + 1e-6

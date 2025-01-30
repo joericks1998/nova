@@ -7,8 +7,12 @@ class Layer(tf.Module):
         self.d_model = d_model # Store the dimension of the embeddings for serialization
         self.embeddings = tf.zeros(shape = (1, self.d_model))  # Initialize embeddings to None
         self.tokens = {"<pad>": 0}  # Dictionary to map words to their indices
+        self.built = True
+        #placeholder for tf.Variable
+        self.new_embedding = None
 
     # Method to retrieve or create the embedding for a given word
+    @tf.function
     def __call__(self, word):
         # Define initializer
         initializer = tf.keras.initializers.GlorotUniform()
@@ -16,9 +20,10 @@ class Layer(tf.Module):
             # If the word is new and not yet in the dictionary
             self.tokens[word] = self.embeddings.shape[0]  # Assign the next index to the new word
             # Create a new embedding and concatenate it to the existing embeddings
-            new_embedding = tf.Variable(initializer(shape = (1, self.d_model)))
+            if self.new_embedding is None:
+                new_embedding = tf.Variable(initializer(shape = (1, self.d_model)))
             new_embeddings = tf.concat([self.embeddings, new_embedding], axis=0)
-            self.embeddings = tf.Variable(new_embeddings)  # Update embeddings with the new concatenated tensor
+            self.embeddings = new_embeddings  # Update embeddings with the new concatenated tensor
         # Retrieve the embedding for the given word using its index
         return tf.nn.embedding_lookup(self.embeddings, self.tokens[word])
 

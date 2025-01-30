@@ -16,6 +16,7 @@ class Layer(tf.Module):
         self.layernorm = tf.keras.layers.LayerNormalization(epsilon = 1e6)
         # dropout
         self.dropout = tf.keras.layers.Dropout(dropout_rate)
+        self.built = True
 
     def __call__(self, batch, training=False):
         # feed through attention mechanism
