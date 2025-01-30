@@ -35,7 +35,8 @@ class Model(tf.keras.Model):
         # embedding tokenized batch
         embeddings = tf.stack([self.embedder(t.decode('utf-8')) for t in flat_batch.numpy()])
         return tf.reshape(embeddings, shape = in_batch.shape+[embeddings.shape[1]])
-    @tf.function(reduce_retracing=True)
+
+    # @tf.function(reduce_retracing=True)
     def _transformPass(self, embed_batch):
         fpass_batch = embed_batch
         i = 0
@@ -59,15 +60,28 @@ class Model(tf.keras.Model):
     def generate_regres(self, batch, token_limit = 250, clean=True, pretty_print = False):
         token_batch = TACO.inBatch(batch)
         encoded_batch = self.MINT(token_batch, translate = True)
-        o_batch = encoded_batch
-        for i in range(token_limit):
-            o_tensor = self._forwardPass(o_batch)
-            o_batch = tf.concat([o_batch, o_tensor], axis = 1)
-            if pretty_print:
-                print(o_tensor.numpy()[0,0].decode('utf-8'), end="")
-        if clean:
-            cleaned = list(o_batch.numpy())
-            return cleaned
+        g_batch = encoded_batch
+        o_batch = None
+        for g_s in g_batch:
+            stopped = False
+            for i in range(token_limit):
+                if not stopped:
+                    g_tensor = self._forwardPass(g_s)
+                    g_s = tf.concat([g_s, g_tensor], axis = 1)
+                    if g_tensor.numpy()[0,0].decode('utf-8') == '<stop>':
+                        stopped = True
+                else:
+                    g_tensor = tf.constant([['<pad>']])
+                    g_s = tf.concat([g_s, g_tensor], axis = 1)
+                if pretty_print:
+                    print(g_tensor.numpy()[0,0].decode('utf-8'), end="")
+            if o_batch is None:
+                o_batch = g_s
+            else:
+                print(g_s.shape)
+                o_batch = tf.stack([o_batch, g_s])
+        if len(o_batch.shape) < 3:
+            return o_batch[tf.newaxis, :, :]
         return o_batch
     #get config for serialization
     def get_config(self):

@@ -14,7 +14,7 @@ class Layer(tf.keras.layers.Layer):
         self.built = True
 
     # Define the forward pass logic for the layer.
-    @tf.function(reduce_retracing=True)
+    # @tf.function(reduce_retracing=True)
     def __call__(self, inputs, top_p = 0.9):
         # Apply the dense layer to project inputs to `vocab_size` dimensions.
         logits = self.projection(inputs)

@@ -145,11 +145,13 @@ class MINT(tf.Module):
                     o_sequence.append(tup[1].decode('utf-8'))
                 else:
                     o_sequence.append(tup[0].decode('utf-8'))
-            o_tensor = tf.constant(o_sequence)
+            o_tensor = tf.reshape(tf.constant(o_sequence), shape = (1,len(o_sequence)))
             if o_batch is not None:
-                o_batch = tf.stack([o_batch, tf.expand_dims(o_tensor, axis = 0)])
+                o_batch = tf.stack([o_batch, o_tensor])
             else:
-                o_batch = tf.expand_dims(o_tensor, axis = 0)
+                o_batch = o_tensor
+        if len(o_batch.shape) < 3:
+            return o_batch[tf.newaxis, :, :]
         return o_batch
 
     def __call__(self, batch, num_samples=25, translate = True):

@@ -13,7 +13,7 @@ class Layer(tf.Module):
         self.built = True
 
     # Define the forward pass logic for the layer.
-    @tf.function(reduce_retracing=True)
+    # @tf.function(reduce_retracing=True)
     def __call__(self, x):
         # Pass the input `x` through the first dense layer.
         x = self.dense1(x)
