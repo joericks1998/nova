@@ -15,13 +15,16 @@ class Layer(tf.keras.layers.Layer):
 
     # Define the forward pass logic for the layer.
     # @tf.function(reduce_retracing=True)
-    def __call__(self, inputs, top_p = 0.9):
+    def __call__(self, inputs, top_p = 0.9, training = False):
         # Apply the dense layer to project inputs to `vocab_size` dimensions.
         logits = self.projection(inputs)
         # Apply temperature scaling for randomness
         scaled_logits = logits / self.temperature
         # Use softmax to convert logits into probabilities across the vocabulary.
         probabilities = tf.nn.softmax(logits, axis=-1)
+        # If training, stop here and return raw probabilities
+        if training:
+            return probabilities
         # Sort the probabilities in descending order
         sorted_probs, sorted_indices = tf.sort(probabilities, direction='DESCENDING'), tf.argsort(probabilities, direction='DESCENDING')
         # Compute the cumulative probabilities

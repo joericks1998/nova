@@ -48,44 +48,65 @@ class Model(tf.keras.Model):
             i+=1
         return fpass_batch
 
-    def _forwardPass(self, in_batch):
+    def _forwardPass(self, in_batch, training = False):
         #embed token batch
         embd_logits = self._embedPass(in_batch)
         # pass through transformer layers
         tfmr_logits = self._transformPass(embd_logits)
         # # pass through last layer for probabilities and refiting
-        idx = self.final(tfmr_logits, top_p = self.top_p)
-        return tf.constant([[self.vocabulary[idx.numpy()]]])
+        o_tensor = self.final(tfmr_logits, top_p = self.top_p, training = training)
+        if training:
+            return o_tensor
+        return tf.constant([[self.vocabulary[o_tensor.numpy()]]])
     #generate model outputs
-    def generate_regres(self, batch, token_limit = 250, clean=True, pretty_print = False):
+    def generate(self, batch, token_limit = 250, clean=True, pretty_print = False):
         token_batch = TACO.inBatch(batch)
         encoded_batch = self.MINT(token_batch, translate = True)
         g_batch = encoded_batch
         o_batch = None
-        for g_s in g_batch:
+        for g_seq in g_batch:
             stopped = False
             for i in range(token_limit):
                 if not stopped:
-                    g_tensor = self._forwardPass(g_s)
-                    g_s = tf.concat([g_s, g_tensor], axis = 1)
+                    g_tensor = self._forwardPass(g_seq)
+                    g_seq = tf.concat([g_seq, g_tensor], axis = 1)
                     if g_tensor.numpy()[0,0].decode('utf-8') == '<stop>':
                         stopped = True
                 else:
                     g_tensor = tf.constant([['<pad>']])
-                    g_s = tf.concat([g_s, g_tensor], axis = 1)
+                    g_seq = tf.concat([g_seq, g_tensor], axis = 1)
                 if pretty_print:
                     print(g_tensor.numpy()[0,0].decode('utf-8'), end="")
             if o_batch is None:
-                o_batch = g_s
+                o_batch = g_seq
             else:
-                print(g_s.shape)
-                o_batch = tf.stack([o_batch, g_s])
+                print(g_seq.shape)
+                o_batch = tf.stack([o_batch, g_seq])
+        if len(o_batch.shape) < 3:
+            return o_batch[tf.newaxis, :, :]
+        return o_batch
+
+    def teacherForce(self, batch, ground_truths):
+        token_batch = TACO.inBatch(batch)
+        encoded_batch = self.MINT(token_batch, translate = True)
+        g_batch = encoded_batch
+        o_batch = None
+        for g_seq, teach_seq in zip(g_batch, ground_truths):
+            for tkn in teach_seq:
+                g_tensor = self._forwardPass(g_seq, training = True)
+                g_seq = tf.concat([g_seq, tkn], axis = 1)
+            if o_batch is None:
+                o_batch = g_seq
+            else:
+                print(g_seq.shape)
+                o_batch = tf.stack([o_batch, g_seq])
         if len(o_batch.shape) < 3:
             return o_batch[tf.newaxis, :, :]
         return o_batch
     #get config for serialization
     def get_config(self):
         return model_io.master_config(Model.__init__)
+
 
     #custom config method (also for serialization)
     @classmethod
@@ -100,3 +121,6 @@ class Model(tf.keras.Model):
             parameters += tfmr.Parameters
         parameters += self.final.Parameters
         return parameters
+    # train model
+    def train(self, batch, ground_truths, method = 'teacher_force'):
+        if method = 'teacher_force':
