@@ -70,13 +70,13 @@ class Model(tf.keras.Model):
                 if not stopped:
                     g_tensor = self._forwardPass(g_seq)
                     g_seq = tf.concat([g_seq, g_tensor], axis = 1)
-                    if g_tensor.numpy()[0,0].decode('utf-8') == '<stop>':
+                    if g_tensor.numpy()[0,0].decode('utf-8') == '#END':
                         stopped = True
+                    if pretty_print and not stopped:
+                        print(g_tensor.numpy()[0,0].decode('utf-8'), end="")
                 else:
-                    g_tensor = tf.constant([['<pad>']])
+                    g_tensor = tf.constant([['#PAD']])
                     g_seq = tf.concat([g_seq, g_tensor], axis = 1)
-                if pretty_print:
-                    print(g_tensor.numpy()[0,0].decode('utf-8'), end="")
             if o_batch is None:
                 o_batch = g_seq
             else:
@@ -86,27 +86,9 @@ class Model(tf.keras.Model):
             return o_batch[tf.newaxis, :, :]
         return o_batch
 
-    def teacherForce(self, batch, ground_truths):
-        token_batch = TACO.inBatch(batch)
-        encoded_batch = self.MINT(token_batch, translate = True)
-        g_batch = encoded_batch
-        o_batch = None
-        for g_seq, teach_seq in zip(g_batch, ground_truths):
-            for tkn in teach_seq:
-                g_tensor = self._forwardPass(g_seq, training = True)
-                g_seq = tf.concat([g_seq, tkn], axis = 1)
-            if o_batch is None:
-                o_batch = g_seq
-            else:
-                print(g_seq.shape)
-                o_batch = tf.stack([o_batch, g_seq])
-        if len(o_batch.shape) < 3:
-            return o_batch[tf.newaxis, :, :]
-        return o_batch
     #get config for serialization
     def get_config(self):
         return model_io.master_config(Model.__init__)
-
 
     #custom config method (also for serialization)
     @classmethod
@@ -121,6 +103,28 @@ class Model(tf.keras.Model):
             parameters += tfmr.Parameters
         parameters += self.final.Parameters
         return parameters
-    # train model
-    def train(self, batch, ground_truths, method = 'teacher_force'):
-        if method = 'teacher_force':
+
+    def getOneHotTruths(self, ground_truths):
+        o_tensor = None
+        for g_seq in ground_truths:
+            for tkn in g_seq:
+                one_hot = tf.one_hot(self.vocabulary.index(tkn), depth = len(self.vocabulary))
+        return
+    # model training function
+    def train(self, batch, ground_truths, teacher_force = True, token_limit = 250):
+        token_batch = TACO.inBatch(batch)
+        ground_truth_tokens = TACO.inBatch(ground_truths)
+        encoded_batch = self.MINT(token_batch, translate = True)
+        g_batch = encoded_batch
+        for g_seq, teach_seq in zip(g_batch, ground_truth_tokens):
+            loss_batch = None
+            for t in teach_seq:
+                g_tensor = self._forwardPass(g_seq, training=True)
+                if loss_batch is None:
+                    loss_batch = g_tensor
+                else:
+                    print(loss_batch.shape)
+                    loss_batch = tf.concat([loss_batch, g_tensor], axis = 0)
+                if teacher_force:
+                    g_seq = tf.concat([g_seq, t[tf.newaxis, tf.newaxis]], axis = 1)
+        return loss_batch

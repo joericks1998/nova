@@ -24,7 +24,7 @@ class Layer(tf.keras.layers.Layer):
         probabilities = tf.nn.softmax(logits, axis=-1)
         # If training, stop here and return raw probabilities
         if training:
-            return probabilities
+            return probabilities[:,probabilities.shape[1]-1,:]
         # Sort the probabilities in descending order
         sorted_probs, sorted_indices = tf.sort(probabilities, direction='DESCENDING'), tf.argsort(probabilities, direction='DESCENDING')
         # Compute the cumulative probabilities

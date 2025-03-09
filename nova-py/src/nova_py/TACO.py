@@ -2,17 +2,25 @@ import re
 import json
 import tensorflow as tf
 
-def word_split(string):
+def inTokens(string):
     if string == "":
         return
-    space_arr = re.split(r'\s+', string)
-    response = []
-    for tkn in space_arr:
-        response += [t.lower() for t in re.split(r'([,;"\'\n])', tkn) if t != '']
-    return response
+    quote_match = r'"[^"]*"|[^"\s]+'
+    splits = re.findall(quote_match, string)
+    custom_match = r'\w+|[^\w\s]'
+    quote_split = r'\"+|.+(?<!\")'
+    tokens = []
+    for i in splits:
+        if "\"" in i:
+            arr = re.findall(quote_split, i)
+            tokens += arr
+        else:
+            arr = re.findall(custom_match, i)
+            tokens += arr
+    return tokens
 
 def inBatch(text_batch):
-    token_batch = [t for t in map(word_split, text_batch) if t]
+    token_batch = [t for t in map(inTokens, text_batch) if t]
     max_seq_len = max(list(map(len, token_batch)))
     pad_batch = []
     for seq in token_batch:
