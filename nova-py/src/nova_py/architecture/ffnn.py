@@ -23,7 +23,7 @@ class Layer(tf.Module):
 
     # Serialize the layer's configuration into a dictionary.
     def get_config(self):
-        return master_config(Layer.__init__)  # Return the stored configuration.
+        return  # Return the stored configuration.
 
     # Reconstruct the layer from a serialized configuration.
     @classmethod

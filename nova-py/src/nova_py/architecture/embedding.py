@@ -50,7 +50,7 @@ class Layer(tf.Module):
 
     #get config for serialization
     def get_config(self):
-        return master_config(Layer.__init__)
+        return
 
     #custom config method (also for serialization)
     @classmethod
