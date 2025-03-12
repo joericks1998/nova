@@ -45,6 +45,5 @@ class Layer(tf.Module):
     #parameters getter for model training
     @property
     def Parameters(self):
-        tfmr_trainables = [self.layernorm.gamma,
-                            self.layernorm.beta]
-        return self.attention_mech.Parameters + self.ffnn.Parameters + tfmr_trainables
+        tfmr_trainables = self.layernorm.trainable_variables
+        return self.attention.Parameters + self.ffnn.Parameters + tfmr_trainables

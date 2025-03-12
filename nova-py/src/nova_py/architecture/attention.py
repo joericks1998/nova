@@ -13,9 +13,9 @@ class Layer(tf.Module):
         self.depth = d_model // num_heads
 
         # Initialize weights
-        self.wq = tf.Variable(tf.random.normal([d_model, d_model]), name='wq')
-        self.wk = tf.Variable(tf.random.normal([d_model, d_model]), name='wk')
-        self.wv = tf.Variable(tf.random.normal([d_model, d_model]), name='wv')
+        self.wq = tf.Variable(tf.random.normal([d_model, d_model]), name='wq', trainable=True)
+        self.wk = tf.Variable(tf.random.normal([d_model, d_model]), name='wk', trainable=True)
+        self.wv = tf.Variable(tf.random.normal([d_model, d_model]), name='wv', trainable=True)
         self.dense = tf.keras.layers.Dense(d_model)
 
         # layer normalization
@@ -86,4 +86,4 @@ class Layer(tf.Module):
     #parameters getter for model training
     @property
     def Parameters(self):
-        return [self.wq, self.wk, self.wv, self.layernorm.gamma, self.layernorm.beta]
+        return [self.wq, self.wk, self.wv] + self.layernorm.trainable_variables

@@ -20,6 +20,7 @@ class Model(tf.keras.Model):
             self.vocabulary = [line.strip() for line in f]
         self.dims = self.hp['nova']['dimensions']
         self.run_specs = self.hp['nova']['run_specs']
+        self.training_specs = self.hp['nova']['training_specs']
         self.embedder = embedding.Layer(self.dims['d_model'], name = "nova_embedding_layer")
         #initialize transformers
         self.tfmrs = {i+1: transformer.Layer(self.dims['d_model'], self.dims['num_heads'],
@@ -29,6 +30,9 @@ class Model(tf.keras.Model):
         self.top_p = self.run_specs['top_p']
         self.MINT = MINT.load()
         self.built = True
+        self.loss_fn = tf.keras.losses.CategoricalCrossentropy(from_logits=False)
+        self.optimizer = tf.keras.optimizers.Adam(learning_rate=self.training_specs['learning_rate'])
+        self.num_epochs = self.training_specs['num_epochs']
         # return
     def _embedPass(self, in_batch):
         flat_batch = tf.reshape(in_batch, [-1])
@@ -80,7 +84,6 @@ class Model(tf.keras.Model):
             if o_batch is None:
                 o_batch = g_seq
             else:
-                print(g_seq.shape)
                 o_batch = tf.stack([o_batch, g_seq])
         if len(o_batch.shape) < 3:
             return o_batch[tf.newaxis, :, :]
@@ -88,7 +91,7 @@ class Model(tf.keras.Model):
 
     #get config for serialization
     def get_config(self):
-        return model_io.master_config(Model.__init__)
+        return
 
     #custom config method (also for serialization)
     @classmethod
@@ -98,33 +101,59 @@ class Model(tf.keras.Model):
     #parameters getter for model training
     @property
     def Parameters(self):
-        parameters = self.embed.Parameters
+        parameters = self.embedder.Parameters
         for tfmr in self.tfmrs.values():
             parameters += tfmr.Parameters
         parameters += self.final.Parameters
         return parameters
 
-    def getOneHotTruths(self, ground_truths):
-        o_tensor = None
+    # model size (important for training)
+    @property
+    def Size(self):
+        parameters = self.Parameters
+        return [p.shape for p in parameters]
+
+    # get one hot encoded ground truths
+    def getOneHotTruths(self, ground_truths, sequence_length):
+        o_list = []
         for g_seq in ground_truths:
-            for tkn in g_seq:
-                one_hot = tf.one_hot(self.vocabulary.index(tkn), depth = len(self.vocabulary))
-        return
+            o_tensor = None
+            for i in range(0, sequence_length):
+                try:
+                    if i > 2:
+                        if g_seq[i-2] == "id":
+                            one_hot = tf.one_hot(self.vocabulary.index('#VARIABLE'), depth = len(self.vocabulary))
+                        elif g_seq[i-2] == "value":
+                            one_hot = tf.one_hot(self.vocabulary.index('#VALUE'), depth = len(self.vocabulary))
+                    else:
+                        one_hot = tf.one_hot(self.vocabulary.index(g_seq[i]), depth = len(self.vocabulary))
+                except tf.errors.InvalidArgumentError:
+                    one_hot = tf.zeros(shape = (len(self.vocabulary)))
+                if o_tensor is None:
+                    o_tensor = one_hot[None, :]
+                else:
+                    o_tensor = tf.concat([o_tensor, one_hot[None, :]], axis=0)
+            o_list.append(o_tensor)
+        return o_list
     # model training function
     def train(self, batch, ground_truths, teacher_force = True, token_limit = 250):
         token_batch = TACO.inBatch(batch)
         ground_truth_tokens = TACO.inBatch(ground_truths)
         encoded_batch = self.MINT(token_batch, translate = True)
-        g_batch = encoded_batch
-        for g_seq, teach_seq in zip(g_batch, ground_truth_tokens):
-            loss_batch = None
-            for t in teach_seq:
-                g_tensor = self._forwardPass(g_seq, training=True)
-                if loss_batch is None:
-                    loss_batch = g_tensor
-                else:
-                    print(loss_batch.shape)
-                    loss_batch = tf.concat([loss_batch, g_tensor], axis = 0)
-                if teacher_force:
-                    g_seq = tf.concat([g_seq, t[tf.newaxis, tf.newaxis]], axis = 1)
-        return loss_batch
+        one_hot_truths = self.getOneHotTruths(ground_truth_tokens, ground_truth_tokens.shape[1])
+        for epoch in range(self.num_epochs):
+            with tf.GradientTape() as tape:
+                for g_seq, teach_seq, one_hot in zip(encoded_batch, ground_truth_tokens, one_hot_truths):
+                    loss_batch = None
+                    for t in teach_seq:
+                        g_tensor = self._forwardPass(g_seq, training=True)
+                        if loss_batch is None:
+                            loss_batch = g_tensor
+                        else:
+                            loss_batch = tf.concat([loss_batch, g_tensor], axis = 0)
+                        if teacher_force:
+                            g_seq = tf.concat([g_seq, t[tf.newaxis, tf.newaxis]], axis = 1)
+                    loss = self.loss_fn(y_true=one_hot, y_pred=loss_batch)
+                    gradients = tape.gradient(loss, self.Parameters)
+                    self.optimizer.apply_gradients(zip(gradients, self.Parameters))
+        return loss
