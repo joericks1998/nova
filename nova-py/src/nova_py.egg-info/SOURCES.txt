@@ -1,0 +1,17 @@
+setup.py
+src/nova_py/__init__.py
+src/nova_py/model.py
+src/nova_py/parser.py
+src/nova_py/tokenizer.py
+src/nova_py.egg-info/PKG-INFO
+src/nova_py.egg-info/SOURCES.txt
+src/nova_py.egg-info/dependency_links.txt
+src/nova_py.egg-info/requires.txt
+src/nova_py.egg-info/top_level.txt
+src/nova_py/architecture/__init__.py
+src/nova_py/architecture/attention.py
+src/nova_py/architecture/embedding.py
+src/nova_py/architecture/ffnn.py
+src/nova_py/architecture/final.py
+src/nova_py/architecture/masking.py
+src/nova_py/architecture/transformer.py
