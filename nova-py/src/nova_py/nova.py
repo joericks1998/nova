@@ -11,6 +11,7 @@ class Model(tf.keras.Model):
     def __init__(self, _hp_path = 'model/hyperparameters.yaml', _vocab_path = 'model/vocabulary.txt', _encoder_path = 'model/semantics'):
         super(Model, self).__init__()
         parent = Path(__file__).resolve().parent
+        self.default_save_path = parent/"nova.keras"
         self._hp_path = parent/_hp_path
         self._vocab_path = parent/_vocab_path
         self._encoder_path = parent/_encoder_path
@@ -25,13 +26,13 @@ class Model(tf.keras.Model):
         #initialize transformers
         self.tfmrs = {i+1: transformer.Layer(self.dims['d_model'], self.dims['num_heads'],
                                             self.dims['dff'], self.run_specs['dropout_rate']) for i in range(0,self.dims['num_transformers'])}
-        self.final = final.Layer(self.vocabulary, self.dims['d_model'], self.run_specs['temperature'])
+        self.final = final.Layer(self.dims['d_model'], len(self.vocabulary), self.run_specs['temperature'])
         self.layerdrop = self.run_specs['layerdrop']
         self.top_p = self.run_specs['top_p']
         self.MINT = MINT.load()
         self.built = True
         self.loss_fn = tf.keras.losses.CategoricalCrossentropy(from_logits=False)
-        self.optimizer = tf.keras.optimizers.Adam(learning_rate=self.training_specs['learning_rate'])
+        self.learning_rate = self.training_specs['learning_rate']
         self.num_epochs = self.training_specs['num_epochs']
         # return
     def _embedPass(self, in_batch):
@@ -41,14 +42,14 @@ class Model(tf.keras.Model):
         return tf.reshape(embeddings, shape = in_batch.shape+[embeddings.shape[1]])
 
     # @tf.function(reduce_retracing=True)
-    def _transformPass(self, embed_batch):
+    def _transformPass(self, embed_batch, training=False):
         fpass_batch = embed_batch
         i = 0
         for tfmr in self.tfmrs.values():
             if i == 0:
-                fpass_batch = tfmr(fpass_batch)
+                fpass_batch = tfmr(fpass_batch, training=training)
             elif np.random.random() < self.layerdrop:
-                fpass_batch = tfmr(fpass_batch)
+                fpass_batch = tfmr(fpass_batch, training=training)
             i+=1
         return fpass_batch
 
@@ -56,7 +57,7 @@ class Model(tf.keras.Model):
         #embed token batch
         embd_logits = self._embedPass(in_batch)
         # pass through transformer layers
-        tfmr_logits = self._transformPass(embd_logits)
+        tfmr_logits = self._transformPass(embd_logits, training = training)
         # # pass through last layer for probabilities and refiting
         o_tensor = self.final(tfmr_logits, top_p = self.top_p, training = training)
         if training:
@@ -91,7 +92,11 @@ class Model(tf.keras.Model):
 
     #get config for serialization
     def get_config(self):
-        return
+        return {
+            "_hp_path": str(self._hp_path.relative_to(Path(__file__).resolve().parent)),
+            "_vocab_path": str(self._vocab_path.relative_to(Path(__file__).resolve().parent)),
+            "_encoder_path": str(self._encoder_path.relative_to(Path(__file__).resolve().parent)),
+        }
 
     #custom config method (also for serialization)
     @classmethod
@@ -111,7 +116,13 @@ class Model(tf.keras.Model):
     @property
     def Size(self):
         parameters = self.Parameters
-        return [p.shape for p in parameters]
+        s = 0
+        for p in parameters:
+            n_p = 1
+            for d in p.shape:
+                n_p *= d
+            s += n_p
+        return s
 
     # get one hot encoded ground truths
     def getOneHotTruths(self, ground_truths, sequence_length):
@@ -141,6 +152,7 @@ class Model(tf.keras.Model):
         ground_truth_tokens = TACO.inBatch(ground_truths)
         encoded_batch = self.MINT(token_batch, translate = True)
         one_hot_truths = self.getOneHotTruths(ground_truth_tokens, ground_truth_tokens.shape[1])
+        optimizer = tf.keras.optimizers.Adam(learning_rate = self.learning_rate)
         for epoch in range(self.num_epochs):
             with tf.GradientTape() as tape:
                 for g_seq, teach_seq, one_hot in zip(encoded_batch, ground_truth_tokens, one_hot_truths):
@@ -155,5 +167,27 @@ class Model(tf.keras.Model):
                             g_seq = tf.concat([g_seq, t[tf.newaxis, tf.newaxis]], axis = 1)
                     loss = self.loss_fn(y_true=one_hot, y_pred=loss_batch)
                     gradients = tape.gradient(loss, self.Parameters)
-                    self.optimizer.apply_gradients(zip(gradients, self.Parameters))
+                    optimizer.apply_gradients(zip(gradients, self.Parameters))
         return loss
+    # os methods
+    def save(self, save_path=None):
+        """Saves the model to a default directory if no path is provided."""
+        if save_path is None:
+            save_path = self.default_save_path
+
+        # Ensure the directory exists
+        os.makedirs(save_path, exist_ok=True)
+
+        # Save model weights using TensorFlow checkpointing
+        checkpoint = tf.train.Checkpoint(model=self)
+        checkpoint.write(os.path.join(save_path, "model.ckpt"))
+        print(f"Model saved to {save_path}")
+
+    def load(self, load_path=None):
+        """Loads the model from a checkpoint."""
+        if load_path is None:
+            load_path = self.default_save_path
+
+        checkpoint = tf.train.Checkpoint(model=self)
+        checkpoint.restore(os.path.join(load_path, "model.ckpt"))
+        print(f"Model loaded from {load_path}")
