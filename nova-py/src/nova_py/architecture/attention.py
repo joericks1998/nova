@@ -35,12 +35,13 @@ class Layer(tf.Module):
         return tf.transpose(x, perm=[0, 2, 1, 3])
 
     # @tf.function(reduce_retracing=True)
-    def __call__(self, q, k, v, mask=None):
+    def __call__(self, q, k, v, mask=None, training=False):
         batch_size = tf.shape(q)[0]
         seq_len = tf.shape(q)[1]
 
         # creating lookahead mask
-        lookahead_mask = masking.create_look_ahead_mask(seq_len)
+        if not training:
+            lookahead_mask = masking.create_look_ahead_mask(seq_len)
 
         #dotting q,k,v
         q = tf.tensordot(q, self.wq, axes=[[2], [0]])  # (batch_size, seq_len, d_model)
@@ -67,7 +68,8 @@ class Layer(tf.Module):
         attention_output = tf.einsum('...nd,...de,...n->...ne', q_prime, kv, z)
 
         # apply mask
-        attention_output = masking.masked_attention(q_prime, k_prime, v, lookahead_mask)
+        if not training:
+            attention_output = masking.masked_attention(q_prime, k_prime, v, lookahead_mask)
 
         attention_output = tf.reshape(attention_output, (batch_size, -1, self.d_model))
         output = self.dense(attention_output)
@@ -77,7 +79,12 @@ class Layer(tf.Module):
 
     #get config for serialization
     def get_config(self):
-        return master_config(Layer.__init__)
+        return {
+            "d_model": self.d_model,
+            "num_heads": self.num_heads,
+            "kernel_transformation": None if self.kernel_transformation == self.default_kernel_transformation else self.kernel_transformation,
+            "name": self.name
+        }
 
     #custom config method (also for serialization)
     @classmethod

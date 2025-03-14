@@ -5,12 +5,15 @@ class Layer(tf.Module):
     def __init__(self, d_model, dff, name=None):
         # Initialize the parent `tf.Module` class with an optional name.
         super(Layer, self).__init__(name=name)
+        self.d_model = d_model
+        self.dff = dff
         # Define the first dense layer with a ReLU activation function.
-        self.dense1 = tf.keras.layers.Dense(dff, activation='relu')
+        self.dense1 = tf.keras.layers.Dense(dff, activation='gelu')
         # Define the second dense layer without activation to project back to `d_model` dimensions.
         self.dense2 = tf.keras.layers.Dense(d_model)
-        # Set build
-        self.built = True
+        # Manually build the layers
+        self.dense1.build((None, d_model))  # Simulating input shape (batch_size, d_model)
+        self.dense2.build((None, dff))
 
     # Define the forward pass logic for the layer.
     # @tf.function(reduce_retracing=True)
@@ -23,7 +26,11 @@ class Layer(tf.Module):
 
     # Serialize the layer's configuration into a dictionary.
     def get_config(self):
-        return master_config(Layer.__init__)  # Return the stored configuration.
+        return {
+            "d_model": self.d_model,
+            "dff": self.dff,
+            "name": self.name
+        }  # Return the stored configuration.
 
     # Reconstruct the layer from a serialized configuration.
     @classmethod

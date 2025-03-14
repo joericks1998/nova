@@ -4,14 +4,9 @@ from . import attention, ffnn
 class Layer(tf.Module):
     def __init__(self, d_model, num_heads, dff, dropout_rate, name = None):
         super(Layer, self).__init__(name = name)
-        self.attention = attention.Layer(d_model, num_heads)
+        self.attention = attention.Layer(d_model=d_model, num_heads=num_heads)
         self.ffnn = ffnn.Layer(d_model, dff)
-        self.config = {
-            "d_model": d_model,
-            "num_heads": num_heads,
-            "dff": dff,
-            "dropout_rate": dropout_rate
-        }
+
         # layer normalization
         self.layernorm = tf.keras.layers.LayerNormalization(epsilon = 1e6)
         # dropout
@@ -20,7 +15,7 @@ class Layer(tf.Module):
     # @tf.function(reduce_retracing=True)
     def __call__(self, batch, training=False):
         # feed through attention mechanism
-        attentionized = self.attention(batch, batch, batch)
+        attentionized = self.attention(batch, batch, batch, training=training)
         attentionized = self.dropout(attentionized, training=training)
         #residual connection
         attention_o = self.layernorm(batch + attentionized)
@@ -35,7 +30,12 @@ class Layer(tf.Module):
 
     #parameters getter for model training
     def get_config(self):
-        return master_config(Layer.__init__)
+        return {
+            "d_model": d_model,
+            "num_heads": num_heads,
+            "dff": dff,
+            "dropout_rate": dropout_rate
+        }
 
     #custom config method (also for serialization)
     @classmethod
