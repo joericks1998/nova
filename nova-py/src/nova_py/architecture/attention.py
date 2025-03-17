@@ -35,12 +35,12 @@ class Layer(tf.Module):
         return tf.transpose(x, perm=[0, 2, 1, 3])
 
     # @tf.function(reduce_retracing=True)
-    def __call__(self, q, k, v, mask=None, training=False):
+    def __call__(self, q, k, v, mask=None, autoregres=True):
         batch_size = tf.shape(q)[0]
         seq_len = tf.shape(q)[1]
 
         # creating lookahead mask
-        if not training:
+        if autoregres:
             lookahead_mask = masking.create_look_ahead_mask(seq_len)
 
         #dotting q,k,v
@@ -68,7 +68,7 @@ class Layer(tf.Module):
         attention_output = tf.einsum('...nd,...de,...n->...ne', q_prime, kv, z)
 
         # apply mask
-        if not training:
+        if autoregres:
             attention_output = masking.masked_attention(q_prime, k_prime, v, lookahead_mask)
 
         attention_output = tf.reshape(attention_output, (batch_size, -1, self.d_model))

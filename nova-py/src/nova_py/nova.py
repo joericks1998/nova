@@ -6,9 +6,7 @@ from .transcribe import MINT
 from pathlib import Path
 import yaml
 
-def funDecorations(func):
-    def wrapper(self, *args, **kwargs):
-        return
+def logging(func):
     return
 
 
@@ -71,7 +69,7 @@ class Model(tf.keras.Model):
         return tf.reshape(embeddings, shape = in_batch.shape+[embeddings.shape[1]])
 
     # @tf.function(reduce_retracing=True)
-    def _transformPass(self, embed_batch, training=False):
+    def _transformPass(self, embed_batch):
         """
         Forward pass through transformers
         """
@@ -83,10 +81,10 @@ class Model(tf.keras.Model):
         for tfmr in self.tfmrs.values():
             # require at least one forward pass
             if i == 0:
-                fpass_batch = tfmr(fpass_batch, training=training)
+                fpass_batch = tfmr(fpass_batch)
             # else layerdropping is in play (for performance optimization)
             elif np.random.random() < self.layerdrop:
-                fpass_batch = tfmr(fpass_batch, training=training)
+                fpass_batch = tfmr(fpass_batch)
             # increment
             i+=1
         # return forward pass batch after processed through transformers
@@ -294,7 +292,7 @@ class Model(tf.keras.Model):
                     optimizer.apply_gradients(zip(gradients, self.Parameters))
         # return calculated loss
         return loss
-    
+
     # os methods
     def save(self, save_path=None):
         """
