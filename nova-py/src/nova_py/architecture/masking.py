@@ -22,3 +22,7 @@ def masked_attention(q, k, v, mask=None):
     output = tf.matmul(attention_weights, v)  # (batch_size, num_heads, seq_len_q, depth_v)
 
     return output
+
+# simple blanket mask
+def simple_mask(logits, idx):
+    return logits + tf.one_hot(idx, depth = logits.shape[2]) * -1e9
