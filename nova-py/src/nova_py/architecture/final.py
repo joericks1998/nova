@@ -22,7 +22,7 @@ class Layer(tf.keras.layers.Layer):
         logits = self.projection(inputs)
         # Apply temperature scaling for randomness (if not training)
         if not training:
-            scaled_logits = logits / self.temperature
+            scaled_logits = logits * self.temperature
             # Apply hard mask on tokens
             logits = masking.simple_mask(logits, hard_mask)
         # Use softmax to convert logits into probabilities across the vocabulary.
