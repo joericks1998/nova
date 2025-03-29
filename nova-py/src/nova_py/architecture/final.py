@@ -1,25 +1,30 @@
 import tensorflow as tf
+from . import masking
 
 # Define a custom layer class, inheriting from `tf.keras.layers.Layer`.
 class Layer(tf.keras.layers.Layer):
-    def __init__(self, vocab, d_model, temperature):
+    def __init__(self, d_model ,vocab_len, temperature):
         # Initialize the parent `tf.keras.layers.Layer` class.
         super(Layer, self).__init__()
         # Define a dense layer to project inputs to `vocab_size` dimensions.
+        self.vocab_len = vocab_len
         # This is typically used as the output layer of a generative model.
-        self.projection = tf.keras.layers.Dense(len(vocab))
+        self.projection = tf.keras.layers.Dense(vocab_len, input_dim= d_model)
         # Define the model temperature
         self.temperature = temperature
-        # Define vocabulary
-        self.built = True
+        # Manually build layers
+        self.projection.build((None, d_model))
 
     # Define the forward pass logic for the layer.
     # @tf.function(reduce_retracing=True)
-    def __call__(self, inputs, top_p = 0.9, training = False):
+    def __call__(self, inputs, top_p = 0.9, num_samples=1, training = False, hard_mask = [162]):
         # Apply the dense layer to project inputs to `vocab_size` dimensions.
         logits = self.projection(inputs)
-        # Apply temperature scaling for randomness
-        scaled_logits = logits / self.temperature
+        # Apply temperature scaling for randomness (if not training)
+        if not training:
+            scaled_logits = logits * self.temperature
+            # Apply hard mask on tokens
+            logits = masking.simple_mask(logits, hard_mask)
         # Use softmax to convert logits into probabilities across the vocabulary.
         probabilities = tf.nn.softmax(logits, axis=-1)
         # If training, stop here and return raw probabilities
@@ -39,14 +44,17 @@ class Layer(tf.keras.layers.Layer):
         # Normalize the probabilities of the top-p tokens
         top_p_probs /= tf.reduce_sum(top_p_probs)
         # Sample from the top-p tokens
-        sampled_index = tf.random.categorical(tf.math.log([top_p_probs]), num_samples=1)[0,0]
+        sampled_index = tf.random.categorical(tf.math.log([top_p_probs]), num_samples=num_samples)[0,0]
         # Map back to the original token IDs
         sampled_token = tf.gather(top_p_indices, sampled_index)
         return sampled_token  # Return the probabilities as the output.
 
     # Serialize the layer's configuration into a dictionary.
     def get_config(self):
-        return master_config(Layer.__init__) # Return the stored configuration.
+        return {
+            "vocab_len": self.vocab_len,
+            "temperature": self.temperature
+        }# Return the stored configuration.
 
     # Reconstruct the layer from a serialized configuration.
     @classmethod
