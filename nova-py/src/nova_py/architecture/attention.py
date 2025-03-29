@@ -94,3 +94,27 @@ class Layer(tf.Module):
     @property
     def Parameters(self):
         return [self.wq, self.wk, self.wv] + self.layernorm.trainable_variables
+
+import tensorflow as tf
+
+
+# attention pooling for tagging
+class AttentionPool(tf.keras.layers.Layer):
+    def __init__(self):
+        super().__init__()
+        self.query_layer = tf.keras.layers.Dense(1)  # Score for each timestep
+
+    def __call__(self, inputs, mask=None):
+        # inputs: (seq_len, activation_dim) or (batch_size, seq_len, activation_dim)
+        scores = self.query_layer(inputs)  # (batch_size, seq_len, 1) or (seq_len, 1)
+        scores = tf.squeeze(scores, axis=-1)  # Remove last dim: (batch_size, seq_len) or (seq_len,)
+        weights = tf.nn.softmax(scores, axis=-1)  # Softmax over time
+        if mask is not None:
+            weights *= tf.cast(mask, tf.float32)
+            weights /= tf.reduce_sum(weights, axis=-1, keepdims=True)
+        pooled = tf.reduce_sum(inputs * tf.expand_dims(weights, -1), axis=-2)  # Weighted sum over seq_len
+        return pooled  # (batch_size, activation_dim) or (activation_dim,)
+
+    @property
+    def Parameters(self):
+        return [self.query_layer.kernel, self.query_layer.bias]

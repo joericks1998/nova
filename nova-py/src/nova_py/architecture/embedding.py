@@ -1,4 +1,5 @@
 import tensorflow as tf
+import numpy as np
 
 class Layer(tf.Module):
     # Initialize the EmbeddingLayer with the given embedding dimension and optional name
@@ -15,7 +16,7 @@ class Layer(tf.Module):
         self.embeddings = tf.Variable(self.initializer(shape = (N, self.d_model)), trainable=True)  # Initialize embeddings to None
     # Method to retrieve or create the embedding for a given word
     def __call__(self, token):
-        if isinstance(token, int) and token <= self.N:
+        if isinstance(token, np.int32) and token <= self.N:
             return tf.nn.embedding_lookup(self.embeddings, token)
         else:
             msg = '''

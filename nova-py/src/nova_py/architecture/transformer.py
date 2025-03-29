@@ -14,10 +14,10 @@ class Layer(tf.Module):
         # create dropout
         self.dropout = tf.keras.layers.Dropout(dropout_rate)
     # @tf.function(reduce_retracing=True)
-    def __call__(self, batch, autoregres=True):
+    def __call__(self, batch, autoregres=True, training=False):
         # feed through attention mechanism
-        attentionized = self.attention(batch, batch, batch, training=training)
-        attentionized = self.dropout(attentionized, autoregres=autoregres)
+        attentionized = self.attention(batch, batch, batch, autoregres=autoregres)
+        attentionized = self.dropout(attentionized, training=training)
         #residual connection
         attention_o = self.layernorm(batch + attentionized)
 
