@@ -1,9 +1,9 @@
 import tensorflow as tf
 from . import masking
 
-class Layer(tf.Module):
+class PerformerLayer(tf.keras.layers.Layer):
     def __init__(self, d_model, num_heads, kernel_transformation=None, name=None):
-        super(Layer, self).__init__(name=name)
+        super(PerformerLayer, self).__init__(name=name)
         self.d_model = d_model
         self.num_heads = num_heads
         self.kernel_transformation = kernel_transformation or self.default_kernel_transformation
@@ -22,11 +22,11 @@ class Layer(tf.Module):
         self.layernorm = tf.keras.layers.LayerNormalization(epsilon = 1e-6)
         self.built = True
 
-    # @tf.function(reduce_retracing=True)
+    @tf.function(reduce_retracing=True)
     def default_kernel_transformation(self, x):
         return tf.nn.relu(x) + 1e-6
 
-    # @tf.function(reduce_retracing=True)
+    @tf.function(reduce_retracing=True)
     def split_heads(self, x, batch_size):
         """Split the last dimension into (num_heads, depth).
         Transpose the result to shape (batch_size, num_heads, seq_len, depth).
@@ -34,7 +34,8 @@ class Layer(tf.Module):
         x = tf.reshape(x, (batch_size, -1, self.num_heads, self.depth))
         return tf.transpose(x, perm=[0, 2, 1, 3])
 
-    # @tf.function(reduce_retracing=True)
+    # main call
+    @tf.function(reduce_retracing=True)
     def __call__(self, q, k, v, mask=None, autoregres=True):
         batch_size = tf.shape(q)[0]
         seq_len = tf.shape(q)[1]
@@ -79,12 +80,13 @@ class Layer(tf.Module):
 
     #get config for serialization
     def get_config(self):
-        return {
+        config = super().get_config()
+        config.update({
             "d_model": self.d_model,
             "num_heads": self.num_heads,
-            "kernel_transformation": None if self.kernel_transformation == self.default_kernel_transformation else self.kernel_transformation,
-            "name": self.name
-        }
+            "kernel_transformation": self.kernel_transformation
+        })
+        return config
 
     #custom config method (also for serialization)
     @classmethod
@@ -95,11 +97,8 @@ class Layer(tf.Module):
     def Parameters(self):
         return [self.wq, self.wk, self.wv] + self.layernorm.trainable_variables
 
-import tensorflow as tf
-
-
 # attention pooling for tagging
-class AttentionPool(tf.keras.layers.Layer):
+class Pool(tf.keras.layers.Layer):
     def __init__(self):
         super().__init__()
         self.query_layer = tf.keras.layers.Dense(1)  # Score for each timestep

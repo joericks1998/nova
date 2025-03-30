@@ -51,10 +51,12 @@ class Layer(tf.keras.layers.Layer):
 
     # Serialize the layer's configuration into a dictionary.
     def get_config(self):
-        return {
-            "vocab_len": self.vocab_len,
-            "temperature": self.temperature
-        }# Return the stored configuration.
+        config = super().get_config()
+        config.update({
+                "vocab_len": self.vocab_len,
+                "temperature": self.temperature
+        })
+        return config # Return the stored configuration.
 
     # Reconstruct the layer from a serialized configuration.
     @classmethod

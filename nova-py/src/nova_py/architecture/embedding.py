@@ -1,7 +1,7 @@
 import tensorflow as tf
 import numpy as np
 
-class Layer(tf.Module):
+class Layer(tf.keras.layers.Layer):
     # Initialize the EmbeddingLayer with the given embedding dimension and optional name
     def __init__(self, d_model=None, N=None, name=None):
         if not d_model or not N:
@@ -16,22 +16,17 @@ class Layer(tf.Module):
         self.embeddings = tf.Variable(self.initializer(shape = (N, self.d_model)), trainable=True)  # Initialize embeddings to None
     # Method to retrieve or create the embedding for a given word
     def __call__(self, token):
-        if isinstance(token, np.int32) and token <= self.N:
-            return tf.nn.embedding_lookup(self.embeddings, token)
-        else:
-            msg = '''
-            Token must be of type "int".
-            '''
-            raise TypeError(msg)
+        return tf.nn.embedding_lookup(self.embeddings, tf.cast(token, dtype=tf.int32))
         # Retrieve the embedding for the given word using its index
 
     #get config for serialization
     def get_config(self):
-        return {
+        config = super().get_config()
+        config.update({
             "d_model": self.d_model,
-            "N": self.N,
-            "name": self.name
-        }
+            "N": self.N
+        })
+        return config
 
     #custom config method (also for serialization)
     @classmethod

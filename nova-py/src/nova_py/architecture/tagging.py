@@ -2,7 +2,8 @@ import tensorflow as tf
 from . import attention
 
 class Layer(tf.keras.layers.Layer):
-    def __init__(self, num_features = None, num_groups = None, temperature = None):
+    def __init__(self, num_features = None, num_groups = None, temperature = None, name = None):
+        super().__init__(name=name)
         assert num_features is not None
         assert num_groups is not None
         assert temperature is not None
@@ -10,16 +11,17 @@ class Layer(tf.keras.layers.Layer):
         self.num_groups = num_groups
         self.temperature = temperature
         self.projection = tf.keras.layers.Dense(self.num_features*self.num_groups)
-        self.attention_pool = attention.AttentionPool()
+        self.attention_pool = attention.Pool()
 
     # translate output token to tag format
     def _tag_translate(self, sampled_token):
         group = 0
-        for i in range(sampled_token.numpy()):
+        for i in range(sampled_token):
             if i % self.num_features==0:
                 group+=1
-        return tf.constant([sampled_token.numpy()%self.num_features, group])
+        return tf.constant([sampled_token%self.num_features, group])
 
+    @tf.function(reduce_retracing=True)
     def __call__(self, batch, top_p=0.5, num_samples=1, training = False):
         if training:
             num_samples=1
@@ -46,7 +48,7 @@ class Layer(tf.keras.layers.Layer):
         sampled_index = tf.random.categorical(tf.math.log([top_p_probs]), num_samples=num_samples)[0,0]
         # Map back to the original token IDs
         sampled_token = tf.gather(top_p_indices, sampled_index)
-        return self._tag_translate(sampled_token)  # Return the probabilities as the output.
+        return sampled_token  # Return the probabilities as the output.
 
 
     @property
@@ -55,4 +57,19 @@ class Layer(tf.keras.layers.Layer):
         return [
             self.projection.kernel,  # The weight matrix of the projection layer.
             self.projection.bias    # The bias vector of the projection layer.
-        ] + self.attention_pool.Parameters
+        ] + self.attention_pool.Parameters # get attention pool parameters
+
+    #parameters getter for model training
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+                "num_features": self.num_features,
+                "num_groups": self.num_groups,
+                "temperature": self.temperature
+        })
+        return config
+
+    #custom config method (also for serialization)
+    @classmethod
+    def from_config(cls,config):
+        return cls(**config)

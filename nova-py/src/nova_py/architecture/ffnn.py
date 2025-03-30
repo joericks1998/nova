@@ -1,7 +1,7 @@
 import tensorflow as tf
 
 # Define a custom layer class, inheriting from `tf.Module`.
-class Layer(tf.Module):
+class Layer(tf.keras.layers.Layer):
     def __init__(self, d_model, dff, name=None):
         # Initialize the parent `tf.Module` class with an optional name.
         super(Layer, self).__init__(name=name)
@@ -26,11 +26,12 @@ class Layer(tf.Module):
 
     # Serialize the layer's configuration into a dictionary.
     def get_config(self):
-        return {
+        config = super().get_config()
+        config.update({
             "d_model": self.d_model,
-            "dff": self.dff,
-            "name": self.name
-        }  # Return the stored configuration.
+            "dff": self.dff
+        })
+        return config # Return the stored configuration.
 
     # Reconstruct the layer from a serialized configuration.
     @classmethod
