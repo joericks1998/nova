@@ -5,16 +5,15 @@ from .architecture import embedding, transformer, tagging
 class Model(tf.keras.Model):
     def __init__(self, d_model=None, num_transformers=None, num_features=None,
                     num_groups=None, vocabulary_size=None, layerdrop=None,
-                    num_heads=None, dF=None, dropout_rate=None, temperature=None):
-        super(Model, self).__init__(name="NERf")
+                    num_heads=None, dff=None, dropout_rate=None, temperature=None):
+        super(self, Model).__init__(name="NERf")
         self.d_model = d_model
         self.num_transformers = num_transformers
         self.num_features = num_features
         self.num_groups = num_groups
         self.vocabulary_size = vocabulary_size
         self.num_heads = num_heads
-        self.dF = dF
-        self.dff = d_model * dF
+        self.dff = dff
         self.layerdrop = layerdrop
         self.dropout_rate = dropout_rate
         self.temperature = temperature
@@ -110,7 +109,8 @@ class Model(tf.keras.Model):
         return s
     #parameters getter for model training
     def get_config(self):
-        return {
+        config = super().get_config()
+        config.update({
             "d_model": self.d_model,
             "num_transformers": self.num_transformers,
             "num_features": self.num_features,
@@ -118,10 +118,11 @@ class Model(tf.keras.Model):
             "vocabulary_size": self.vocabulary_size,
             "layerdrop": self.layerdrop,
             "num_heads": self.num_heads,
-            "dF": self.dF,
+            "dff": self.dff,
             "dropout_rate": self.dropout_rate,
             "temperature": self.temperature
-        }
+        })
+        return config
 
     #custom config method (also for serialization)
     @classmethod

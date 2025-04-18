@@ -15,6 +15,7 @@ class Layer(tf.keras.layers.Layer):
         self.initializer = tf.keras.initializers.GlorotUniform()
         self.embeddings = tf.Variable(self.initializer(shape = (N, self.d_model)), trainable=True)  # Initialize embeddings to None
     # Method to retrieve or create the embedding for a given word
+    @tf.function(reduce_retracing=True)
     def __call__(self, token):
         return tf.nn.embedding_lookup(self.embeddings, tf.cast(token, dtype=tf.int32))
         # Retrieve the embedding for the given word using its index

@@ -16,7 +16,7 @@ class Layer(tf.keras.layers.Layer):
         self.dense2.build((None, dff))
 
     # Define the forward pass logic for the layer.
-    # @tf.function(reduce_retracing=True)
+    @tf.function(reduce_retracing=True)
     def __call__(self, x):
         # Pass the input `x` through the first dense layer.
         x = self.dense1(x)
