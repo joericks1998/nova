@@ -2,26 +2,48 @@ import tensorflow as tf
 from . import masking
 
 class PerformerLayer(tf.keras.layers.Layer):
-    def __init__(self, d_model, num_heads, kernel_transformation=None, name=None):
-        super(PerformerLayer, self).__init__(name=name)
+    def __init__(self, d_model, num_heads, kernel_transformation=None, autoregressive = False, name=None, **kwargs):
+        super(PerformerLayer, self).__init__(name=name, **kwargs)
         self.d_model = d_model
         self.num_heads = num_heads
         self.kernel_transformation = kernel_transformation or self.default_kernel_transformation
+        self.autoregressive = autoregressive
 
         assert d_model % num_heads == 0, "Embedding dimension must be divisible by the number of heads."
 
         self.depth = d_model // num_heads
-
+        if self.autoregressive:
+            self.initializer = tf.keras.initializers.LecunNormal()
+        else:
+            self.initializer = tf.keras.initializers.LecunNormal()
         # Initialize weights
-        self.wq = tf.Variable(tf.random.normal([d_model, d_model]), name='wq', trainable=True)
-        self.wk = tf.Variable(tf.random.normal([d_model, d_model]), name='wk', trainable=True)
-        self.wv = tf.Variable(tf.random.normal([d_model, d_model]), name='wv', trainable=True)
         self.dense = tf.keras.layers.Dense(d_model)
-
         # layer normalization
         self.layernorm = tf.keras.layers.LayerNormalization(epsilon = 1e-6)
-        self.built = True
-
+    # build layer and add weights
+    def build(self, input_shape):
+        self.wq = self.add_weight(
+            name="wQ",
+            shape=(self.d_model, self.d_model),
+            initializer=self.initializer,
+            trainable=True,
+            dtype=self.dtype
+        )
+        self.wk = self.add_weight(
+            name="wK",
+            shape=(self.d_model, self.d_model),
+            initializer=self.initializer,
+            trainable=True,
+            dtype=self.dtype
+        )
+        self.wv = self.add_weight(
+            name="wV",
+            shape=(self.d_model, self.d_model),
+            initializer=self.initializer,
+            trainable=True,
+            dtype=self.dtype
+        )
+    #define kernel transformation rule
     @tf.function(reduce_retracing=True)
     def default_kernel_transformation(self, x):
         return tf.nn.relu(x) + 1e-6
@@ -36,14 +58,15 @@ class PerformerLayer(tf.keras.layers.Layer):
 
     # main call
     @tf.function(reduce_retracing=True)
-    def __call__(self, q, k, v, mask=None, autoregres=True):
+    def call(self, q, k, v, mask=None):
         batch_size = tf.shape(q)[0]
         seq_len = tf.shape(q)[1]
-
         # creating lookahead mask
-        if autoregres:
+        if self.autoregressive:
             lookahead_mask = masking.create_look_ahead_mask(seq_len)
 
+        # expanded padding mask
+        expanded_mask = tf.expand_dims(mask, axis=1)
         #dotting q,k,v
         q = tf.tensordot(q, self.wq, axes=[[2], [0]])  # (batch_size, seq_len, d_model)
         k = tf.tensordot(k, self.wk, axes=[[2], [0]])  # (batch_size, seq_len, d_model)
@@ -62,21 +85,23 @@ class PerformerLayer(tf.keras.layers.Layer):
         # Apply kernel transformation
         q_prime = self.kernel_transformation(q)  # Apply kernel transformation
         k_prime = self.kernel_transformation(k)
-
+        # Apply pad mask
+        k_prime = k_prime * expanded_mask[..., None]
+        v = v * expanded_mask[..., None]
         # FAVOR+ Mechanism
         kv = tf.einsum('...nd,...ne->...de', k_prime, v)
         z = 1.0 / (tf.einsum('...nd,...d->...n', q_prime, tf.reduce_sum(k_prime, axis=-2)) + 1e-6)
         attention_output = tf.einsum('...nd,...de,...n->...ne', q_prime, kv, z)
-
         # apply mask
-        if autoregres:
-            attention_output = masking.masked_attention(q_prime, k_prime, v, lookahead_mask)
+        if self.autoregressive:
+            attention_output = masking.masked_attention(q_prime, k_prime, v, dtype=self.compute_dtype, mask=lookahead_mask)
 
         attention_output = tf.reshape(attention_output, (batch_size, -1, self.d_model))
         output = self.dense(attention_output)
-
         #normalize outputs
         return self.layernorm(output)
+        # apply pad mask
+
 
     #get config for serialization
     def get_config(self):
@@ -103,13 +128,14 @@ class Pool(tf.keras.layers.Layer):
         super().__init__()
         self.query_layer = tf.keras.layers.Dense(1)  # Score for each timestep
 
-    def __call__(self, inputs, mask=None):
+    @tf.function(reduce_retracing=True)
+    def call(self, inputs, mask=None):
         # inputs: (seq_len, activation_dim) or (batch_size, seq_len, activation_dim)
         scores = self.query_layer(inputs)  # (batch_size, seq_len, 1) or (seq_len, 1)
         scores = tf.squeeze(scores, axis=-1)  # Remove last dim: (batch_size, seq_len) or (seq_len,)
         weights = tf.nn.softmax(scores, axis=-1)  # Softmax over time
         if mask is not None:
-            weights *= tf.cast(mask, tf.float32)
+            weights *= tf.cast(mask, self.dtype)
             weights /= tf.reduce_sum(weights, axis=-1, keepdims=True)
         pooled = tf.reduce_sum(inputs * tf.expand_dims(weights, -1), axis=-2)  # Weighted sum over seq_len
         return pooled  # (batch_size, activation_dim) or (activation_dim,)

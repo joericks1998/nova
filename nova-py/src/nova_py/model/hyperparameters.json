@@ -1,13 +1,24 @@
 {
   "NERf": {
     "d_model": 1024,
-    "num_transformers": 16,
-    "num_features": 64,
-    "num_groups": 2,
+    "num_transformers": 8,
     "layerdrop": 0.2,
     "num_heads": 8,
-    "dF": 4,
+    "dff": 4096,
     "dropout_rate": 0.2,
-    "temperature": 1
+    "temperature": 1,
+    "top_p": 0.001,
+    "num_samples": 1500
+  },
+  "PArM": {
+    "d_model": 1024,
+    "num_transformers": 16,
+    "layerdrop": 0.2,
+    "num_heads": 32,
+    "dff": 4096,
+    "dropout_rate": 0.3,
+    "temperature": 1.0,
+    "top_p": 0.2,
+    "num_samples": 5
   }
 }

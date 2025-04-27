@@ -1,53 +1,58 @@
 import tensorflow as tf
 from . import attention
+import functools
 
 class Layer(tf.keras.layers.Layer):
-    def __init__(self, num_features = None, num_groups = None, temperature = None, name = None):
-        super().__init__(name=name)
+    def __init__(self, num_features = None, temperature = None, name = None, **kwargs):
+        super().__init__(name=name, **kwargs)
         assert num_features is not None
-        assert num_groups is not None
         assert temperature is not None
         self.num_features = num_features
-        self.num_groups = num_groups
         self.temperature = temperature
-        self.projection = tf.keras.layers.Dense(self.num_features*self.num_groups)
+        self.projection = tf.keras.layers.Dense(self.num_features)
         self.attention_pool = attention.Pool()
-
-    # translate output token to tag format
-    def _tag_translate(self, sampled_token):
-        group = 0
-        for i in range(sampled_token):
-            if i % self.num_features==0:
-                group+=1
-        return tf.constant([sampled_token%self.num_features, group])
-
+    # function for running top p sampling on a sequence
     @tf.function(reduce_retracing=True)
-    def __call__(self, batch, top_p=0.5, num_samples=1, training = False):
-        if training:
-            num_samples=1
-        else:
-            num_samples=num_samples
-        pooled_batch = self.attention_pool(batch)
-        logits = self.projection(pooled_batch)
-        if not training:
-            logits = self.temperature * logits
-        probabilities = tf.nn.softmax(logits)
-        sorted_probs, sorted_indices = tf.sort(probabilities, direction='DESCENDING'), tf.argsort(probabilities, direction='DESCENDING')
+    def sample_top_p(self, p_sequence, p=None, num_samples=1):
+        # Sort the probabilities in descending order
+        sorted_probs = tf.sort(p_sequence, direction='DESCENDING'),
+        sorted_indices = tf.expand_dims(tf.argsort(p_sequence, direction='DESCENDING'), axis = 0)
         # Compute the cumulative probabilities
         cumulative_probs = tf.math.cumsum(sorted_probs, axis=-1)
-        # Create a mask for tokens where cumulative probability <= p
-        mask = cumulative_probs <= top_p
-        # Ensure at least one token is included
-        # mask = tf.concat([[True], mask[:-1]], axis=0)
+        # force p to be bigger than the smallest p in cumulative probabilities
+        # this essentially so we force sampling at least one token
+        p = tf.maximum(cumulative_probs[0, 0], p)
+        # Create a mask for tokens where cumulative probability <= ps
+        p_mask = cumulative_probs <= p
+        # Force at least one True if all are False
         # Filter out tokens not in the top-p set
-        top_p_probs = tf.boolean_mask(sorted_probs, mask)
-        top_p_indices = tf.boolean_mask(sorted_indices, mask)
+        top_p_probs = tf.boolean_mask(sorted_probs, p_mask)
+        top_p_indices = tf.boolean_mask(sorted_indices, p_mask)
         # Normalize the probabilities of the top-p tokens
         top_p_probs /= tf.reduce_sum(top_p_probs)
         # Sample from the top-p tokens
         sampled_index = tf.random.categorical(tf.math.log([top_p_probs]), num_samples=num_samples)[0,0]
         # Map back to the original token IDs
         sampled_token = tf.gather(top_p_indices, sampled_index)
+        return tf.cast(sampled_token, dtype=self.compute_dtype)
+    # call the model
+    @tf.function(reduce_retracing=True)
+    def call(self, batch, top_p=None, num_samples=1, training = False):
+        if training:
+            num_samples=1
+        pooled_batch = self.attention_pool(batch)
+        logits = self.projection(pooled_batch)
+        if not training:
+            logits = self.temperature * logits
+        probabilities = tf.nn.softmax(logits)
+        # If training, stop here and return raw probabilities
+        if training:
+            return probabilities[:,probabilities.shape[1]-1,:]
+        else:
+            # else call the sampler for top p sampling
+            sampler = functools.partial(self.sample_top_p, p=top_p, num_samples=num_samples)
+            sampled_tokens = tf.map_fn(sampler, probabilities)
+            return tf.cast(sampled_tokens, dtype=tf.int32)
         return sampled_token  # Return the probabilities as the output.
 
 

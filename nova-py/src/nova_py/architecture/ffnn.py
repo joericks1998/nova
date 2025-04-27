@@ -2,9 +2,9 @@ import tensorflow as tf
 
 # Define a custom layer class, inheriting from `tf.Module`.
 class Layer(tf.keras.layers.Layer):
-    def __init__(self, d_model, dff, name=None):
+    def __init__(self, d_model, dff, name=None, **kwargs):
         # Initialize the parent `tf.Module` class with an optional name.
-        super(Layer, self).__init__(name=name)
+        super(Layer, self).__init__(name=name, **kwargs)
         self.d_model = d_model
         self.dff = dff
         # Define the first dense layer with a ReLU activation function.
@@ -17,7 +17,7 @@ class Layer(tf.keras.layers.Layer):
 
     # Define the forward pass logic for the layer.
     @tf.function(reduce_retracing=True)
-    def __call__(self, x):
+    def call(self, x):
         # Pass the input `x` through the first dense layer.
         x = self.dense1(x)
         # Pass the output of the first dense layer through the second dense layer.

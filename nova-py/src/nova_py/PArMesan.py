@@ -28,12 +28,12 @@ class Model(tf.keras.Model):
         self.embedder = embedding.Layer(d_model = self.d_model,
             N = self.input_size, name = "PArMe")
         self.transformers = [transformer.Layer(d_model = self.d_model,
-            num_heads = self.num_heads, dff = self.dff, dropout_rate=dropout_rate, name =f"PArMf {i}")
+            num_heads = self.num_heads, dff = self.dff, dropout_rate=dropout_rate, autoregressive=True, name =f"PArMf{i}")
             for i in range(self.num_transformers)]
         self.final = final.Layer(self.d_model, self.output_size, self.temperature)
 
     @tf.function(reduce_retracing=True)
-    def _embedPass(self, batch):
+    def _embedPass(self, batch, mask=None):
         """
         Forward pass for embedding batch...
         """
@@ -42,16 +42,18 @@ class Model(tf.keras.Model):
         # flatten batch
         flat_batch = tf.reshape(batch, [-1])
         # embedding tokenized batch
-        embeddings = tf.map_fn(self.embedder, tf.cast(flat_batch, dtype=tf.float32))
+        embeddings = self.embedder(flat_batch)
         # return embedding batch in the shape it was recieved in (with added dimension for logits)
         embed_dim = tf.shape(embeddings)[-1]  # gives int tensor
         # Now construct the shape properly
         target_shape = tf.concat([batch_shape, [embed_dim]], axis=0)
+        # expand mask
+        expanded_mask = tf.expand_dims(mask, axis=-1)
         # return reshaped tensor
-        return tf.reshape(embeddings, target_shape)
+        return tf.reshape(embeddings, target_shape) * expanded_mask
 
     @tf.function(reduce_retracing=True)
-    def _transformPass(self, embed_batch):
+    def _transformPass(self, embed_batch, mask=None):
         """
         Forward pass through transformers
         """
@@ -63,7 +65,7 @@ class Model(tf.keras.Model):
         for tfmr in self.transformers:
             # require at least one forward pass
             if i == 0:
-                fpass_batch = tfmr(fpass_batch, autoregres=True)
+                fpass_batch = tfmr(fpass_batch, mask=mask,autoregres=True)
             # else layerdropping is in play (for performance optimization)
             elif np.random.random() < self.layerdrop:
                 fpass_batch = tfmr(fpass_batch)
@@ -73,21 +75,21 @@ class Model(tf.keras.Model):
         return fpass_batch
 
     @tf.function(reduce_retracing=True)
-    def _forwardPass(self, in_batch, training = False):
+    def _forwardPass(self, in_batch, mask=None, training = False):
         """
         pass batch through all layers, if training return probabilities for loss
         """
         #embed token batch
-        embd_logits = self._embedPass(in_batch)
+        embd_logits = self._embedPass(in_batch, mask=mask)
         # pass through transformer layers
-        tfmr_logits = self._transformPass(embd_logits)
+        tfmr_logits = self._transformPass(embd_logits, mask=mask)
         # pass through last layer for probabilities and refiting
         o_tensor = self.final(tfmr_logits, top_p = self.top_p, num_samples=self.num_samples)
         return o_tensor
 
     #generate model outputs
-    @tf.function(reduce_retracing=True)
-    def generate(self, batch, token_limit = 250):
+    # @tf.function(reduce_retracing=True)
+    def generate(self, batch, mask=None, token_limit = None):
         """
         main method for output generation
         """
@@ -102,7 +104,8 @@ class Model(tf.keras.Model):
             return step < token_limit
         #define body
         def body(step, tokens, output):
-            next_token = self._forwardPass(tokens)
+            next_token = self._forwardPass(tokens, mask=mask)
+            mask = tf.concat([mask, tf.ones((tf.shape(mask)[0], 1), dtype=mask.dtype)], axis=1)
             output = output.write(step, next_token)
             tokens = tf.concat([tokens, tf.expand_dims(next_token, axis=1)], axis=1)
             return step + 1, tokens, output
@@ -123,8 +126,8 @@ class Model(tf.keras.Model):
         final_output = tf.transpose(output_array.stack(), perm=[1,0])
         return final_output
 
-    def __call__(self, batch):
-        return self.generate(batch)
+    def call(self, batch, mask=None, token_limit=250):
+        return self.generate(batch, mask=mask, token_limit=token_limit)
 
     #get config for serialization
     def get_config(self):
@@ -135,9 +138,8 @@ class Model(tf.keras.Model):
         config.update({
             "d_model": self.d_model,
             "num_transformers": self.num_transformers,
-            "num_features": self.num_features,
-            "num_groups": self.num_groups,
-            "vocabulary_size": self.vocabulary_size,
+            "input_size": self.input_size,
+            "output_size": self.output_size,
             "layerdrop": self.layerdrop,
             "num_heads": self.num_heads,
             "dff": self.dff,
