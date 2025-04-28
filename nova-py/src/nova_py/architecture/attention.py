@@ -57,31 +57,27 @@ class PerformerLayer(tf.keras.layers.Layer):
         return tf.transpose(x, perm=[0, 2, 1, 3])
 
     # main call
-    @tf.function(reduce_retracing=True)
+    # @tf.function(reduce_retracing=True)
     def call(self, q, k, v, mask=None):
         batch_size = tf.shape(q)[0]
         seq_len = tf.shape(q)[1]
         # creating lookahead mask
         if self.autoregressive:
             lookahead_mask = masking.create_look_ahead_mask(seq_len)
-
         # expanded padding mask
         expanded_mask = tf.expand_dims(mask, axis=1)
         #dotting q,k,v
         q = tf.tensordot(q, self.wq, axes=[[2], [0]])  # (batch_size, seq_len, d_model)
         k = tf.tensordot(k, self.wk, axes=[[2], [0]])  # (batch_size, seq_len, d_model)
         v = tf.tensordot(v, self.wv, axes=[[2], [0]])  # (batch_size, seq_len, d_model)
-
         # normalize layers
         q = self.layernorm(q)
         k = self.layernorm(k)
         v = self.layernorm(v)
-
         # split_heads
         q = self.split_heads(q, batch_size)  # (batch_size, num_heads, seq_len, depth)
         k = self.split_heads(k, batch_size)  # (batch_size, num_heads, seq_len, depth)
         v = self.split_heads(v, batch_size)  # (batch_size, num_heads, seq_len, depth)
-
         # Apply kernel transformation
         q_prime = self.kernel_transformation(q)  # Apply kernel transformation
         k_prime = self.kernel_transformation(k)

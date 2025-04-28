@@ -19,17 +19,18 @@ class Model(tf.keras.Model):
         self.temperature = temperature
         self.top_p = top_p
         self.num_samples = num_samples
+        return
+    # build function
+    def build(self, input_shape):
         self.embedder = embedding.Layer(d_model = self.d_model,
             N = self.vocabulary_size, name = "NERfembed")
-        self.embedder.build(input_shape=tf.TensorShape([None]))
         self.transformers = [transformer.Layer(d_model = self.d_model,
-            num_heads = self.num_heads, dff = self.dff, dropout_rate=dropout_rate, autoregressive=False, name =f"NERformer{i}")
+            num_heads = self.num_heads, dff = self.dff, dropout_rate=self.dropout_rate, autoregressive=False, name =f"NERformer{i}")
             for i in range(self.num_transformers)]
         self.tagger = tagging.Layer(num_features=self.num_features,
             temperature=self.temperature, name="NER_tagging")
-        self._spans = None
         return
-
+    # embedding forward pass
     @tf.function(reduce_retracing=True)
     def _embedPass(self, batch, mask=None):
         """
@@ -50,7 +51,7 @@ class Model(tf.keras.Model):
         # return reshaped tensor
         return tf.reshape(embeddings, target_shape) * expanded_mask
 
-    @tf.function(reduce_retracing=True)
+    # @tf.function(reduce_retracing=True)
     def _transformPass(self, embed_batch, mask=None):
         """
         Forward pass through transformers
@@ -66,13 +67,13 @@ class Model(tf.keras.Model):
                 fpass_batch = tfmr(fpass_batch, mask=mask)
             # else layerdropping is in play (for performance optimization)
             elif np.random.random() < self.layerdrop:
-                fpass_batch = tfmr(fpass_batch)
+                fpass_batch = tfmr(fpass_batch, mask=mask)
             # increment
             i+=1
         # return forward pass batch after processed through transformers
         return fpass_batch
 
-    @tf.function(reduce_retracing=True)
+    # @tf.function(reduce_retracing=True)
     def tag(self, in_batch, mask=None):
         # define sequence
         sequence = in_batch[0]
@@ -117,7 +118,7 @@ class Model(tf.keras.Model):
         # return transposed looped output
         return tf.transpose(output_array.stack(), perm=[1, 0])
 
-    @tf.function(reduce_retracing=True)
+    # @tf.function(reduce_retracing=True)
     def call(self, batch, mask=None):
         inference_batch = self.tag(batch, mask=mask)
         return inference_batch

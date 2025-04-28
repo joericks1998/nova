@@ -43,11 +43,13 @@ class Model(tf.keras.Model):
             raise TypeError(msg)
         print("tokenizing...")
         tokens = self.taco(in_batch)
-        mask = tf.cast(tokens[0] != self.__pad, self.dtype)
+        nerf_pad_mask = tf.cast(tokens[0] != self.__pad, self.dtype)
+        parm_pad_mask = tf.cast(tokens[1] != 0, self.dtype)
         print("tagging...")
-        nerf_pass = self.nerf(tokens, mask=mask)
+        nerf_pass = self.nerf(tokens, mask=nerf_pad_mask)
+        nerf_pass = tf.cast(nerf_pass, tf.int32) * tf.cast(parm_pad_mask, tf.int32)
         print("generating...")
-        parm_pass = self.parm(nerf_pass, token_limit=token_limit)
+        parm_pass = self.parm(nerf_pass, token_limit=token_limit, mask=parm_pad_mask)
         return parm_pass
 
 def load_model(path=MODEL_PATH / "nova.keras"):

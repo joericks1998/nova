@@ -20,7 +20,7 @@ class Layer(tf.keras.layers.Layer):
         # create dropout
         self.dropout = tf.keras.layers.Dropout(dropout_rate)
     # main transformer call
-    @tf.function(reduce_retracing=True)
+    # @tf.function(reduce_retracing=True)
     def call(self, batch, autoregres=True, training=False, mask=None):
         # feed through attention mechanism (using self attention)
         attentionized = self.attention(batch, batch, batch, mask=mask)

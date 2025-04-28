@@ -11,8 +11,9 @@ class Layer(tf.keras.layers.Layer):
         self.temperature = temperature
         self.projection = tf.keras.layers.Dense(self.num_features)
         self.attention_pool = attention.Pool()
+        self.pad_mask = tf.one_hot([0], depth=self.num_features) * -1e4
     # function for running top p sampling on a sequence
-    @tf.function(reduce_retracing=True)
+    # @tf.function(reduce_retracing=True)
     def sample_top_p(self, p_sequence, p=None, num_samples=1):
         # Sort the probabilities in descending order
         sorted_probs = tf.sort(p_sequence, direction='DESCENDING'),
@@ -36,14 +37,18 @@ class Layer(tf.keras.layers.Layer):
         sampled_token = tf.gather(top_p_indices, sampled_index)
         return tf.cast(sampled_token, dtype=self.compute_dtype)
     # call the model
-    @tf.function(reduce_retracing=True)
+    # @tf.function(reduce_retracing=True)
     def call(self, batch, top_p=None, num_samples=1, training = False):
         if training:
             num_samples=1
+        # apply attention pool
         pooled_batch = self.attention_pool(batch)
         logits = self.projection(pooled_batch)
         if not training:
             logits = self.temperature * logits
+        # mask the first logit (reserved for padding)
+        logits += tf.cast(self.pad_mask, self.compute_dtype)
+        # apply softmax
         probabilities = tf.nn.softmax(logits)
         # If training, stop here and return raw probabilities
         if training:
