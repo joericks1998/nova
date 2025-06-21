@@ -5,16 +5,16 @@ def create_look_ahead_mask(size):
     return mask  # (seq_len, seq_len)
 
 
-def masked_attention(q, k, v, mask=None):
+def masked_attention(q, k, v, dtype=None, mask=None):
     matmul_qk = tf.matmul(q, k, transpose_b=True)  # (batch_size, num_heads, seq_len_q, seq_len_k)
 
     # Scale matmul_qk
-    dk = tf.cast(tf.shape(k)[-1], tf.float32)
+    dk = tf.cast(tf.shape(k)[-1], dtype)
     scaled_attention_logits = matmul_qk / tf.math.sqrt(dk)
 
     # Add the mask to the scaled tensor.
     if mask is not None:
-        scaled_attention_logits += (mask * -1e9)  # Apply mask: set future positions to -inf
+        scaled_attention_logits += ((1.0-tf.cast(mask, dtype)) * -1e4)  # Apply mask: set future positions to -inf
 
     # Softmax is normalized on the last axis (seq_len_k) so that the scores
     # add up to 1.
@@ -24,5 +24,5 @@ def masked_attention(q, k, v, mask=None):
     return output
 
 # simple blanket mask
-def simple_mask(logits, idx):
-    return logits + tf.one_hot(idx, depth = logits.shape[2]) * -1e9
+def simple_mask(logits, idx, dtype=None):
+    return logits + tf.one_hot(idx, depth = logits.shape[2], dtype=dtype) * -1e4
