@@ -31,7 +31,7 @@ class Model(tf.keras.Model):
             temperature=self.temperature, name="NER_tagging")
         return
     # embedding forward pass
-    @tf.function(reduce_retracing=True)
+    # @tf.function(reduce_retracing=True)
     def _embedPass(self, batch, mask=None):
         """
         Forward pass for embedding batch...
@@ -52,7 +52,7 @@ class Model(tf.keras.Model):
         return tf.reshape(embeddings, target_shape) * expanded_mask
 
     # @tf.function(reduce_retracing=True)
-    def _transformPass(self, embed_batch, mask=None):
+    def _transformPass(self, embed_batch, training=False, mask=None):
         """
         Forward pass through transformers
         """
@@ -64,28 +64,24 @@ class Model(tf.keras.Model):
         for tfmr in self.transformers:
             # require at least one forward pass
             if i == 0:
-                fpass_batch = tfmr(fpass_batch, mask=mask)
+                fpass_batch = tfmr(fpass_batch, training=training, mask=mask)
             # else layerdropping is in play (for performance optimization)
             elif np.random.random() < self.layerdrop:
-                fpass_batch = tfmr(fpass_batch, mask=mask)
+                fpass_batch = tfmr(fpass_batch, training=training, mask=mask)
             # increment
             i+=1
         # return forward pass batch after processed through transformers
         return fpass_batch
 
     # @tf.function(reduce_retracing=True)
-    def tag(self, in_batch, mask=None):
-        # define sequence
-        sequence = in_batch[0]
-        # define spans
-        spans = in_batch[1]
+    def tag(self, tokens, spans, training=False, mask=None):
         # flatten spans (for iteration)
         flat_spans = tf.reshape(spans, [-1])
         span_shape = tf.shape(spans)
         # forward pass on embeddings
-        embeddings = self._embedPass(sequence, mask=mask)
+        embeddings = self._embedPass(tokens, mask=mask)
         # forward pass through transformers
-        transforms = self._transformPass(embeddings, mask=mask)
+        transforms = self._transformPass(embeddings, training=training, mask=mask)
         # define array to store outputs
         inferred = tf.TensorArray(dtype=tf.int32, size=span_shape[1])
         step = tf.constant(0, dtype = tf.int32)
@@ -119,8 +115,8 @@ class Model(tf.keras.Model):
         return tf.transpose(output_array.stack(), perm=[1, 0])
 
     # @tf.function(reduce_retracing=True)
-    def call(self, batch, mask=None):
-        inference_batch = self.tag(batch, mask=mask)
+    def call(self, tokens, spans, training=False ,mask=None):
+        inference_batch = self.tag(tokens, spans, training=training, mask=mask)
         return inference_batch
 
     @property

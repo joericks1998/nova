@@ -55,7 +55,7 @@ class Model(tf.keras.Model):
         return tf.reshape(embeddings, target_shape) * expanded_mask
 
     @tf.function(reduce_retracing=True)
-    def _transformPass(self, embed_batch, mask=None):
+    def _transformPass(self, embed_batch, training=False, mask=None):
         """
         Forward pass through transformers
         """
@@ -67,7 +67,7 @@ class Model(tf.keras.Model):
         for tfmr in self.transformers:
             # require at least one forward pass
             if i == 0:
-                fpass_batch = tfmr(fpass_batch, mask=mask)
+                fpass_batch = tfmr(fpass_batch, training=training, mask=mask)
             # else layerdropping is in play (for performance optimization)
             elif np.random.random() < self.layerdrop:
                 fpass_batch = tfmr(fpass_batch, mask=mask)
@@ -77,21 +77,21 @@ class Model(tf.keras.Model):
         return fpass_batch
 
     @tf.function(reduce_retracing=True)
-    def _forwardPass(self, in_batch, mask=None, training = False):
+    def _forwardPass(self, in_batch, mask=None, training=False):
         """
         pass batch through all layers, if training return probabilities for loss
         """
         #embed token batch
         embd_logits = self._embedPass(in_batch, mask=mask)
         # pass through transformer layers
-        tfmr_logits = self._transformPass(embd_logits, mask=mask)
+        tfmr_logits = self._transformPass(embd_logits, training=training, mask=mask)
         # pass through last layer for probabilities and refiting
         o_tensor = self.final(tfmr_logits, top_p = self.top_p, num_samples=self.num_samples)
         return o_tensor
 
     #generate model outputs
     @tf.function(reduce_retracing=True)
-    def generate(self, batch, mask=None, token_limit = None):
+    def generate(self, batch, training=False, mask=None, token_limit = None):
         """
         main method for output generation
         """
@@ -101,37 +101,44 @@ class Model(tf.keras.Model):
         output_array = tf.TensorArray(dtype=tf.int32, size=token_limit)
         step = tf.constant(0)
         # create mask to stop generation
+        is_finished = tf.zeros((batch_size,), dtype=tf.bool)
         # define while loop condition
-        def cond(step, tokens, mask, output):
-            return step < token_limit
+        def cond(step, tokens, mask, output, is_finished):
+            return  tf.logical_and(step < token_limit, tf.logical_not(tf.reduce_all(is_finished)))
         #define body
-        def body(step, tokens, mask, output):
-            next_token = self._forwardPass(tokens, mask=mask)
+        def body(step, tokens, mask, output, is_finished):
+            next_token = self._forwardPass(tokens, training=training, mask=mask)
+            # If already finished, keep generating padding token (0)
+            next_token = tf.where(is_finished, tf.zeros_like(next_token), next_token)
             output = output.write(step, next_token)
-            if step < token_limit:
-                mask = tf.concat([mask, tf.ones((tf.shape(mask)[0], 1), dtype=mask.dtype)], axis=1)
-                tokens = tf.concat([tokens, tf.expand_dims(next_token, axis=1)], axis=1)
-            return step + 1, tokens, mask, output
+            # Update finished where stop token (1) is generated
+            is_finished = tf.logical_or(is_finished, tf.equal(next_token, 1))
+            # Update mask for padding
+            mask = tf.concat([mask, tf.ones((tf.shape(mask)[0], 1), dtype=mask.dtype)], axis=1)
+            tokens = tf.concat([tokens, tf.expand_dims(next_token, axis=1)], axis=1)
+            return step + 1, tokens, mask, output, is_finished
         # Get the initial shape of each loop var
         shape_invariants = [
             tf.TensorShape([]),                    # step: scalar
-            tf.TensorShape([None, None]),   # batch: shape (batch_size, seq_len) grows in axis=1
-            tf.TensorShape([None, None]),   # mask: grows on axis 1 (like the batch)
-            tf.TensorShape(None)                   # output_array: TensorArray is always flexible
+            tf.TensorShape([None, None]),          # batch: shape (batch_size, seq_len) grows in axis=1
+            tf.TensorShape([None, None]),          # mask: grows on axis 1 (like the batch)
+            tf.TensorShape(None),                  # output_array: TensorArray is always flexible
+            tf.TensorShape([None])                 # is_finished: grows on axis 0
         ]
         # fancy loop
-        step, out_tokens, mask, output_array = tf.while_loop(
+        step, out_tokens, mask, output_array, is_finished = tf.while_loop(
             cond,
             body,
-            loop_vars = [step, batch, mask, output_array],
+            loop_vars = [step, batch, mask, output_array, is_finished],
             shape_invariants = shape_invariants
         )
         # consume output
         final_output = tf.transpose(output_array.stack(), perm=[1,0])
         return final_output
-
-    def call(self, batch, mask=None, token_limit=250):
-        return self.generate(batch, mask=mask, token_limit=token_limit)
+    #standard call function (does not do heavy lifting)
+    @tf.function(reduce_retracing=True)
+    def call(self, batch, training=False, mask=None, token_limit=250):
+        return self.generate(batch, training=training, mask=mask, token_limit=token_limit)
 
     #get config for serialization
     def get_config(self):

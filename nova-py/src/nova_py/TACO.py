@@ -64,3 +64,21 @@ def batch(text_batch, pad_token=None, Vocab=None):
         else:
             pad_spans.append(seq)
     return tf.constant(pad_batch), tf.constant(pad_spans)
+
+def split_ast(trees, Vocab=None):
+    splits = []
+    for tree in trees:
+        split = re.findall(r"(?sx)(?:\"\"\"(?:\\.|(?!\"\"\").)*?\"\"\"|'''(?:\\.|(?!''').)*?'''|\"(?:(?:[^\"\\]|\\.)*)\"|'(?:(?:[^'\\]|\\.)*)'|[^\"'\d]+)", tree)
+        splits.append(split)
+    terms = []
+    for split in splits:
+        for string in split:
+            num_quotes = len(re.findall(r"[\"\']", string))
+            if not num_quotes > 1:
+                terms.append(string)
+    cleaning_pattern = r'\w+|\W'
+    clean_terms = []
+    for t in terms:
+        for t2 in re.findall(cleaning_pattern, t):
+            clean_terms.append(t2)
+    return clean_terms

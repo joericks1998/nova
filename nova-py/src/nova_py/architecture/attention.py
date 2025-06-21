@@ -57,7 +57,7 @@ class PerformerLayer(tf.keras.layers.Layer):
         return tf.transpose(x, perm=[0, 2, 1, 3])
 
     # main call
-    # @tf.function(reduce_retracing=True)
+    @tf.function(reduce_retracing=True)
     def call(self, q, k, v, mask=None):
         batch_size = tf.shape(q)[0]
         seq_len = tf.shape(q)[1]
