@@ -8,13 +8,9 @@ class Layer(tf.keras.layers.Layer):
         self.d_model = d_model
         self.dff = dff
         # Define the first dense layer with a ReLU activation function.
-        self.dense1 = tf.keras.layers.Dense(dff, activation='gelu')
+        self.dense1 = tf.keras.layers.Dense(self.dff, activation='gelu')
         # Define the second dense layer without activation to project back to `d_model` dimensions.
-        self.dense2 = tf.keras.layers.Dense(d_model)
-        # Manually build the layers
-        self.dense1.build((None, d_model))  # Simulating input shape (batch_size, d_model)
-        self.dense2.build((None, dff))
-
+        self.dense2 = tf.keras.layers.Dense(self.d_model)
     # Define the forward pass logic for the layer.
     @tf.function(reduce_retracing=True)
     def call(self, x):

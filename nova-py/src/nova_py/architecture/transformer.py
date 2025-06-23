@@ -9,16 +9,18 @@ class Layer(tf.keras.layers.Layer):
         self.num_heads = num_heads
         self.dff = dff
         self.dropout_rate = dropout_rate
+        self.autoregressive = autoregressive
+        # create dropout
+        self.dropout = tf.keras.layers.Dropout(self.dropout_rate)
         # initialize attention layer
-        self.attention = attention.PerformerLayer(d_model=d_model, num_heads=num_heads, autoregressive=autoregressive)
-        self.attention.build(input_shape=tf.TensorShape([None, None]))
+        self.attention = attention.PerformerLayer(d_model=self.d_model, num_heads=self.num_heads, autoregressive=self.autoregressive)
         # initialize deep layer
-        self.ffnn = ffnn.Layer(d_model, dff)
+        self.ffnn = ffnn.Layer(self.d_model, self.dff)
         # create layer normalization
         self.layernorm = tf.keras.layers.LayerNormalization(epsilon = 1e6)
         self.layernorm.trainable = True
-        # create dropout
-        self.dropout = tf.keras.layers.Dropout(dropout_rate)
+        return
+        
     # main transformer call
     @tf.function(reduce_retracing=True)
     def call(self, batch, autoregres=True, training=False, mask=None):

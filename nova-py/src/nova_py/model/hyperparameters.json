@@ -1,24 +1,25 @@
 {
-  "NERf": {
-    "d_model": 1024,
-    "num_transformers": 8,
-    "layerdrop": 0.2,
-    "num_heads": 8,
-    "dff": 4096,
-    "dropout_rate": 0.2,
-    "temperature": 1,
-    "top_p": 0.001,
-    "num_samples": 1500
-  },
+  "concepts": 128,
   "PArM": {
-    "d_model": 1024,
-    "num_transformers": 16,
+    "d_model": 2048,
+    "num_transformers": 2,
     "layerdrop": 0.2,
     "num_heads": 32,
-    "dff": 4096,
-    "dropout_rate": 0.3,
-    "temperature": 1.0,
-    "top_p": 0.2,
+    "dff": 8192,
+    "top_p": 0.4,
+    "dropout_rate": 0.2,
+    "temperature": 1,
+    "num_samples": 20
+  },
+  "NERf": {
+    "d_model": 512,
+    "num_transformers": 32,
+    "layerdrop": 0.2,
+    "num_heads": 16,
+    "dff": 1024,
+    "top_p": 0.8,
+    "dropout_rate": 0.1,
+    "temperature": 1,
     "num_samples": 5
   }
 }

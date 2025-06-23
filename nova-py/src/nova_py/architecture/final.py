@@ -18,13 +18,21 @@ class Layer(tf.keras.layers.Layer):
         # This is typically used as the output layer of a generative model.
         self.projection = tf.keras.layers.Dense(self.vocab_len, input_dim=self.d_model)
         # Define pad mask
-        self.pad_mask = tf.one_hot([0], depth=self.vocab_len) * -1e4
+
     # function for running top p sampling on a sequence
+    # @tf.function(reduce_retracing=True)
+    def rowwise_mode(self, tensor):
+        def get_mode(row):
+            unique_vals, _, counts = tf.unique_with_counts(row)
+            mode_index = tf.argmax(counts)
+            return unique_vals[mode_index]
+        return tf.map_fn(get_mode, tensor, fn_output_signature=self.compute_dtype)
+    # nucleus sampling
     @tf.function(reduce_retracing=True)
     def sample_top_p(self, p_sequence, p=None, num_samples=1):
         # Sort the probabilities in descending order
-        sorted_probs = tf.sort(p_sequence, direction='DESCENDING'),
-        sorted_indices = tf.expand_dims(tf.argsort(p_sequence, direction='DESCENDING'), axis = 0)
+        sorted_probs = tf.sort(p_sequence, direction='DESCENDING')
+        sorted_indices = tf.argsort(p_sequence, direction='DESCENDING')
         # Compute the cumulative probabilities
         cumulative_probs = tf.math.cumsum(sorted_probs, axis=-1)
         # force p to be bigger than the smallest p in cumulative probabilities
@@ -32,16 +40,17 @@ class Layer(tf.keras.layers.Layer):
         p = tf.maximum(cumulative_probs[0, 0], p)
         # Create a mask for tokens where cumulative probability <= ps
         p_mask = cumulative_probs <= p
+        # Force at least one True if all are False
         # Filter out tokens not in the top-p set
-        top_p_probs = tf.boolean_mask(sorted_probs, p_mask)
-        top_p_indices = tf.boolean_mask(sorted_indices, p_mask)
+        top_p_probs = tf.ragged.boolean_mask(sorted_probs, p_mask).to_tensor(default_value=0.0)
+        top_p_indices = tf.ragged.boolean_mask(sorted_indices, p_mask).to_tensor(default_value=0)
         # Normalize the probabilities of the top-p tokens
-        top_p_probs /= tf.reduce_sum(top_p_probs)
+        top_p_probs /= tf.reduce_sum(top_p_probs, axis=1, keepdims=True)
         # Sample from the top-p tokens
-        sampled_index = tf.random.categorical(tf.math.log([top_p_probs]), num_samples=num_samples)[0,0]
+        sampled_indecies = tf.random.categorical(tf.math.log(top_p_probs), num_samples=num_samples)
         # Map back to the original token IDs
-        sampled_token = tf.gather(top_p_indices, sampled_index)
-        return tf.cast(sampled_token, dtype=self.compute_dtype)
+        sampled_tokens = tf.gather(top_p_indices, sampled_indecies, batch_dims=1)
+        return tf.cast(sampled_tokens, dtype=self.compute_dtype)
     # Define the forward pass logic for the layer.
     @tf.function(reduce_retracing=True)
     def call(self, batch, top_p = 0.9, num_samples=1, training = False):
@@ -54,17 +63,19 @@ class Layer(tf.keras.layers.Layer):
         if not training:
             scaled_logits = logits * self.temperature
         # Apply mask for padding token
-        final_logits += tf.cast(self.pad_mask, self.compute_dtype)
+        pad_mask = tf.one_hot([0], depth=self.vocab_len) * -1e4
+        final_logits += tf.cast(pad_mask, self.compute_dtype)
         # Use softmax to convert logits into probabilities across the vocabulary.
         probabilities = tf.nn.softmax(final_logits, axis=1)
         # If training, stop here and return raw probabilities
         if training:
-            return probabilities[:,probabilities.shape[1]-1,:]
+            return probabilities
         else:
             # else call the sampler for top p sampling
             sampler = functools.partial(self.sample_top_p, p=top_p, num_samples=num_samples)
-            sampled_tokens = tf.map_fn(sampler, probabilities)
-            return tf.cast(sampled_tokens, dtype=tf.int32)
+            sampled_tokens = tf.map_fn(sampler, tf.expand_dims(probabilities, axis=0))
+            modes = self.rowwise_mode(tf.reshape(sampled_tokens, (tf.shape(sampled_tokens)[1], -1)))
+            return tf.cast(modes, dtype=tf.int32)
 
     # Serialize the layer's configuration into a dictionary.
     def get_config(self):

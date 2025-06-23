@@ -20,8 +20,6 @@ class PerformerLayer(tf.keras.layers.Layer):
         self.dense = tf.keras.layers.Dense(d_model)
         # layer normalization
         self.layernorm = tf.keras.layers.LayerNormalization(epsilon = 1e-6)
-    # build layer and add weights
-    def build(self, input_shape):
         self.wq = self.add_weight(
             name="wQ",
             shape=(self.d_model, self.d_model),
@@ -57,7 +55,7 @@ class PerformerLayer(tf.keras.layers.Layer):
         return tf.transpose(x, perm=[0, 2, 1, 3])
 
     # main call
-    @tf.function(reduce_retracing=True)
+    # @tf.function(reduce_retracing=True)
     def call(self, q, k, v, mask=None):
         batch_size = tf.shape(q)[0]
         seq_len = tf.shape(q)[1]

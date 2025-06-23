@@ -25,6 +25,7 @@ class Layer(tf.keras.layers.Layer):
     # Method to retrieve or create the embedding for a given word
     @tf.function(reduce_retracing=True)
     def call(self, tokens):
+        tokens = tf.cast(tokens, tf.int32)
         return tf.nn.embedding_lookup(self.embeddings, tokens)
         # Retrieve the embedding for the given word using its index
 
